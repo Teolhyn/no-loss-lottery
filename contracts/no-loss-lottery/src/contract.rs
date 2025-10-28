@@ -2,14 +2,35 @@ use soroban_sdk::{contract, contractimpl, token, Address, Env};
 
 use crate::error::LotteryError;
 use crate::storage;
-use crate::storage::{LotteryStatus, Ticket};
+use crate::storage::{LotteryState, LotteryStatus, Ticket};
 
 #[contract]
 struct NoLossLottery;
 
 #[contractimpl]
 impl NoLossLottery {
-    pub fn initialize() {}
+    pub fn __constructor(
+        e: Env,
+        admin: Address,
+        token: Address,
+        ticket_amount: i128,
+    ) {
+        // No require_auth needed - the deployer provides authorization
+        // Constructor can only be called once during deployment
+
+        storage::write_admin(&e, &admin);
+        storage::write_lottery_status(&e, &LotteryStatus::BuyIn);
+        storage::write_currency(&e, &token);
+        storage::write_token_amount(&e, &ticket_amount);
+
+        let initial_state = LotteryState {
+            status: LotteryStatus::BuyIn,
+            no_participants: 0,
+            amount_of_yield: 0,
+            token: token.clone(),
+        };
+        storage::write_lottery_state(&e, &initial_state);
+    }
 
     pub fn buy_ticket(e: Env, user: Address) -> Result<Ticket, LotteryError> {
         user.require_auth();
@@ -81,5 +102,34 @@ impl NoLossLottery {
         storage::write_ticket(&e, &winner_ticket);
 
         Ok(winner_ticket)
+    }
+
+    pub fn set_status(
+        e: Env,
+        admin: Address,
+        new_status: LotteryStatus,
+    ) -> Result<(), LotteryError> {
+        admin.require_auth();
+
+        if !storage::is_admin(&e, &admin) {
+            return Err(LotteryError::NotAuthorized);
+        }
+
+        storage::write_lottery_status(&e, &new_status);
+
+        // Update lottery state as well
+        let mut state = storage::read_lottery_state(&e)?;
+        state.status = new_status;
+        storage::write_lottery_state(&e, &state);
+
+        Ok(())
+    }
+
+    pub fn get_lottery_state(e: Env) -> Result<LotteryState, LotteryError> {
+        storage::read_lottery_state(&e)
+    }
+
+    pub fn get_admin(e: Env) -> Option<Address> {
+        storage::read_admin(&e)
     }
 }

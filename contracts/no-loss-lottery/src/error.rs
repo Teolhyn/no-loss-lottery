@@ -9,4 +9,6 @@ pub enum LotteryError {
     TokenAmountNotFound = 4,
     LotteryStateNotFound = 5,
     TicketNotFound = 6,
+    AlreadyInitialized = 7,
+    NotAuthorized = 8,
 }

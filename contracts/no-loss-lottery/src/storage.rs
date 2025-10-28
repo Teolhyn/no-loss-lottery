@@ -29,6 +29,7 @@ pub struct Ticket {
 #[derive(Clone)]
 #[contracttype]
 enum Key {
+    Admin,
     LotteryStatus,
     Currency,
     TokenAmount,
@@ -37,11 +38,35 @@ enum Key {
     TicketCounter,
 }
 
+pub fn write_admin(e: &Env, admin: &Address) {
+    e.storage().instance().set(&Key::Admin, admin);
+}
+
+pub fn read_admin(e: &Env) -> Option<Address> {
+    e.storage().instance().get(&Key::Admin)
+}
+
+pub fn is_admin(e: &Env, address: &Address) -> bool {
+    if let Some(admin) = read_admin(e) {
+        admin == *address
+    } else {
+        false
+    }
+}
+
+pub fn write_lottery_status(e: &Env, status: &LotteryStatus) {
+    e.storage().instance().set(&Key::LotteryStatus, status);
+}
+
 pub fn read_lottery_status(e: &Env) -> Result<LotteryStatus, LotteryError> {
     e.storage()
-        .temporary()
+        .instance()
         .get(&Key::LotteryStatus)
         .ok_or(LotteryError::LotteryStatusNotFound)
+}
+
+pub fn write_currency(e: &Env, token: &Address) {
+    e.storage().persistent().set(&Key::Currency, token);
 }
 
 pub fn read_currency(e: &Env) -> Result<Address, LotteryError> {
@@ -51,11 +76,19 @@ pub fn read_currency(e: &Env) -> Result<Address, LotteryError> {
         .ok_or(LotteryError::LotteryCurrencyNotFound)
 }
 
+pub fn write_token_amount(e: &Env, amount: &i128) {
+    e.storage().persistent().set(&Key::TokenAmount, amount);
+}
+
 pub fn read_token_amount(e: &Env) -> Result<i128, LotteryError> {
     e.storage()
         .persistent()
         .get(&Key::TokenAmount)
         .ok_or(LotteryError::TokenAmountNotFound)
+}
+
+pub fn write_lottery_state(e: &Env, state: &LotteryState) {
+    e.storage().persistent().set(&Key::LotteryState, state);
 }
 
 pub fn read_lottery_state(e: &Env) -> Result<LotteryState, LotteryError> {

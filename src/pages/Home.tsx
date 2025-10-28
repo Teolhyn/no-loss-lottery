@@ -1,6 +1,7 @@
 import React from "react";
 import { Code, Layout, Text } from "@stellar/design-system";
 import { GuessTheNumber } from "../components/GuessTheNumber";
+import { Lottery } from "../components/Lottery";
 
 const Home: React.FC = () => (
   <Layout.Content>
@@ -57,6 +58,17 @@ const Home: React.FC = () => (
         &lt;GuessTheNumber /&gt;
       </Text>
       <GuessTheNumber />
+
+      <Text as="h2" size="lg">
+        &lt;Lottery /&gt;
+      </Text>
+      <Text as="p" size="md">
+        Try out the No-Loss Lottery! Buy tickets, simulate yield farming, and
+        run raffles. The mock UI lets you change lottery states to test
+        different scenarios.
+      </Text>
+      <Lottery />
+
       <Text as="h2" size="lg">
         Interact with wallets
       </Text>

@@ -1,8 +1,7 @@
 ### Development environment configuration
 [development.network]
-rpc-url = "http://localhost:8000/rpc"
-network-passphrase = "Standalone Network ; February 2017"
-run-locally = true # automatically start the local network container, if not already running
+rpc-url = "https://soroban-testnet.stellar.org"
+network-passphrase = "Test SDF Network ; September 2015"
 
 [[development.accounts]]
 name = "me" # Required. Keys for this account will be saved to `./.stellar/identity`
@@ -56,6 +55,18 @@ constructor_args = """
 # Only supported in `development` and `testing` environments.
 after_deploy = """
 reset
+"""
+
+[development.contracts.no_loss_lottery]
+client = true
+# Constructor arguments:
+# - admin: The admin account
+# - token: Native XLM on testnet
+# - ticket_amount: Fixed amount per ticket in stroops (10000000 = 1 XLM)
+constructor_args = """
+--admin GBEFGOMLLAWHNSZIED3VWGM7KP6VPE6LV662TRI2ZLYLEBD3KZZZC2MP
+--token CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC
+--ticket_amount 10000000
 """
 
 # Coming Soon: Specify live contracts to bind & import in this project using the given name.
