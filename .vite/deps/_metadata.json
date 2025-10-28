@@ -1,0 +1,106 @@
+{
+  "hash": "2d2511c9",
+  "configHash": "12564df0",
+  "lockfileHash": "7e7f4961",
+  "browserHash": "edeefd5f",
+  "optimized": {
+    "react/jsx-dev-runtime": {
+      "src": "../../node_modules/react/jsx-dev-runtime.js",
+      "file": "react_jsx-dev-runtime.js",
+      "fileHash": "f8a9acbe",
+      "needsInterop": true
+    },
+    "react": {
+      "src": "../../node_modules/react/index.js",
+      "file": "react.js",
+      "fileHash": "fdaa14b6",
+      "needsInterop": true
+    },
+    "react-dom/client": {
+      "src": "../../node_modules/react-dom/client.js",
+      "file": "react-dom_client.js",
+      "fileHash": "8fcb72e1",
+      "needsInterop": true
+    },
+    "react-router-dom": {
+      "src": "../../node_modules/react-router-dom/dist/index.mjs",
+      "file": "react-router-dom.js",
+      "fileHash": "806b151d",
+      "needsInterop": false
+    },
+    "@tanstack/react-query": {
+      "src": "../../node_modules/@tanstack/react-query/build/modern/index.js",
+      "file": "@tanstack_react-query.js",
+      "fileHash": "41090d4b",
+      "needsInterop": false
+    },
+    "@stellar/design-system": {
+      "src": "../../node_modules/@stellar/design-system/build/index.esm.js",
+      "file": "@stellar_design-system.js",
+      "fileHash": "f7a8d026",
+      "needsInterop": false
+    },
+    "@creit.tech/stellar-wallets-kit": {
+      "src": "../../node_modules/@creit.tech/stellar-wallets-kit/index.mjs",
+      "file": "@creit__tech_stellar-wallets-kit.js",
+      "fileHash": "c20ee00c",
+      "needsInterop": false
+    },
+    "@stellar/stellar-sdk": {
+      "src": "../../node_modules/@stellar/stellar-sdk/dist/stellar-sdk.min.js",
+      "file": "@stellar_stellar-sdk.js",
+      "fileHash": "1216135e",
+      "needsInterop": true
+    },
+    "zod": {
+      "src": "../../node_modules/zod/index.js",
+      "file": "zod.js",
+      "fileHash": "d45ec013",
+      "needsInterop": false
+    },
+    "@stellar/stellar-sdk/rpc": {
+      "src": "../../node_modules/@stellar/stellar-sdk/lib/rpc/index.js",
+      "file": "@stellar_stellar-sdk_rpc.js",
+      "fileHash": "89aa5bbe",
+      "needsInterop": true
+    },
+    "@stellar/stellar-xdr-json": {
+      "src": "../../node_modules/@stellar/stellar-xdr-json/stellar_xdr_json.js",
+      "file": "@stellar_stellar-xdr-json.js",
+      "fileHash": "7f5db17f",
+      "needsInterop": false
+    },
+    "lossless-json": {
+      "src": "../../node_modules/lossless-json/lib/esm/index.js",
+      "file": "lossless-json.js",
+      "fileHash": "d59c7119",
+      "needsInterop": false
+    },
+    "bignumber.js": {
+      "src": "../../node_modules/bignumber.js/bignumber.mjs",
+      "file": "bignumber__js.js",
+      "fileHash": "116ff203",
+      "needsInterop": false
+    },
+    "lodash": {
+      "src": "../../node_modules/lodash/lodash.js",
+      "file": "lodash.js",
+      "fileHash": "c4d8953d",
+      "needsInterop": true
+    }
+  },
+  "chunks": {
+    "chunk-QE5MCW7B": {
+      "file": "chunk-QE5MCW7B.js"
+    },
+    "chunk-UEO27XRN": {
+      "file": "chunk-UEO27XRN.js"
+    },
+    "chunk-RCHWBKCQ": {
+      "file": "chunk-RCHWBKCQ.js"
+    },
+    "chunk-PLDDJCW6": {
+      "file": "chunk-PLDDJCW6.js"
+    }
+  }
+}
