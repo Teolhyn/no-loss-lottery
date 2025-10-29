@@ -7,171 +7,347 @@ import * as NoLossLottery from "no_loss_lottery";
 import { rpcUrl } from "../contracts/util";
 import { Address } from "@stellar/stellar-sdk";
 
-// Matrix Terminal Theme CSS
-const matrixStyles = `
-  @keyframes scanline {
-    0% { transform: translateY(-100%); }
-    100% { transform: translateY(100vh); }
+// Vaporwave Theme CSS
+const vaporwaveStyles = `
+  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-10px); }
   }
 
-  @keyframes blink {
-    0%, 49% { opacity: 1; }
-    50%, 100% { opacity: 0; }
+  @keyframes glow-pulse {
+    0%, 100% {
+      box-shadow: 0 0 20px rgba(255, 0, 255, 0.5),
+                  0 0 40px rgba(0, 255, 255, 0.3),
+                  inset 0 0 20px rgba(255, 0, 255, 0.1);
+    }
+    50% {
+      box-shadow: 0 0 40px rgba(255, 0, 255, 0.8),
+                  0 0 60px rgba(0, 255, 255, 0.6),
+                  inset 0 0 30px rgba(255, 0, 255, 0.2);
+    }
   }
 
-  @keyframes flicker {
-    0%, 100% { opacity: 1; }
-    41.99% { opacity: 1; }
-    42% { opacity: 0.8; }
-    43% { opacity: 1; }
-    45.99% { opacity: 1; }
-    46% { opacity: 0.7; }
-    46.5% { opacity: 1; }
+  @keyframes gradient-shift {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
   }
 
-  .matrix-container {
-    background: #000000;
-    color: #00FF00;
-    font-family: 'Courier New', 'IBM Plex Mono', 'Monaco', monospace;
+  @keyframes rainbow {
+    0% { filter: hue-rotate(0deg); }
+    100% { filter: hue-rotate(360deg); }
+  }
+
+  .vaporwave-container {
+    background: linear-gradient(135deg, #1a0033 0%, #330066 25%, #0d1b2a 50%, #1b263b 75%, #0d0d2b 100%);
+    background-size: 400% 400%;
+    animation: gradient-shift 15s ease infinite;
+    color: #FF00FF;
+    font-family: 'Orbitron', sans-serif;
     min-height: 100vh;
     padding: 20px;
     position: relative;
     overflow: hidden;
   }
 
-  .matrix-container::before {
-    content: "";
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 3px;
-    background: linear-gradient(to bottom, rgba(0, 255, 0, 0.8) 0%, transparent 100%);
-    animation: scanline 8s linear infinite;
-    z-index: 10;
-    pointer-events: none;
-  }
-
-  .matrix-container::after {
+  .vaporwave-container::before {
     content: "";
     position: fixed;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    background: repeating-linear-gradient(
-      0deg,
-      rgba(0, 255, 0, 0.03) 0px,
-      transparent 1px,
-      transparent 2px,
-      rgba(0, 255, 0, 0.03) 3px
-    );
+    background:
+      repeating-linear-gradient(
+        0deg,
+        rgba(255, 0, 255, 0.03) 0px,
+        transparent 2px,
+        transparent 4px,
+        rgba(255, 0, 255, 0.03) 6px
+      ),
+      repeating-linear-gradient(
+        90deg,
+        rgba(0, 255, 255, 0.03) 0px,
+        transparent 2px,
+        transparent 4px,
+        rgba(0, 255, 255, 0.03) 6px
+      );
     pointer-events: none;
-    z-index: 9;
-    animation: flicker 0.15s infinite;
+    z-index: 1;
   }
 
-  .matrix-card {
-    background: rgba(0, 20, 0, 0.95) !important;
-    border: 2px solid #00FF00 !important;
-    box-shadow: 0 0 20px rgba(0, 255, 0, 0.3), inset 0 0 20px rgba(0, 255, 0, 0.05) !important;
-    border-radius: 0 !important;
-    padding: 20px !important;
+  .vaporwave-content {
+    position: relative;
+    z-index: 2;
+    max-width: 1000px;
+    margin: 0 auto;
+  }
+
+  .vaporwave-header {
+    text-align: center;
+    margin-bottom: 40px;
+    animation: float 3s ease-in-out infinite;
+  }
+
+  .vaporwave-title {
+    font-size: 4rem;
+    font-weight: 900;
+    margin: 0;
+    background: linear-gradient(90deg, #FF00FF, #00FFFF, #FF00FF);
+    background-size: 200% auto;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: gradient-shift 3s linear infinite;
+    text-shadow: 0 0 30px rgba(255, 0, 255, 0.5);
+    letter-spacing: 8px;
+  }
+
+  .vaporwave-subtitle {
+    font-size: 1.2rem;
+    color: #00FFFF;
+    text-shadow: 0 0 10px rgba(0, 255, 255, 0.8);
+    letter-spacing: 6px;
+    margin-top: 10px;
+  }
+
+  .vaporwave-card {
+    background: rgba(26, 0, 51, 0.6);
+    border: 2px solid;
+    border-image: linear-gradient(135deg, #FF00FF, #00FFFF, #FF1493) 1;
+    padding: 30px;
     margin-bottom: 20px;
+    backdrop-filter: blur(10px);
+    animation: glow-pulse 3s ease-in-out infinite;
     position: relative;
   }
 
-  .matrix-text {
-    color: #00FF00 !important;
-    text-shadow: 0 0 5px rgba(0, 255, 0, 0.7);
-    font-family: 'Courier New', monospace !important;
-    letter-spacing: 1px;
+  .vaporwave-card::before {
+    content: "";
+    position: absolute;
+    top: -2px;
+    left: -2px;
+    right: -2px;
+    bottom: -2px;
+    background: linear-gradient(135deg, #FF00FF, #00FFFF, #FF1493, #FF00FF);
+    background-size: 300% 300%;
+    animation: gradient-shift 4s ease infinite;
+    z-index: -1;
+    opacity: 0.3;
+    filter: blur(10px);
   }
 
-  .matrix-text-dim {
-    color: #00AA00 !important;
-    text-shadow: 0 0 3px rgba(0, 255, 0, 0.4);
-    font-family: 'Courier New', monospace !important;
-  }
-
-  .matrix-title {
-    color: #00FF00 !important;
-    text-shadow: 0 0 10px rgba(0, 255, 0, 0.8);
-    font-family: 'Courier New', monospace !important;
-    font-weight: bold !important;
+  .vaporwave-label {
+    font-size: 0.9rem;
+    color: #00FFFF;
+    text-transform: uppercase;
     letter-spacing: 3px;
-    text-transform: uppercase;
+    margin-bottom: 10px;
+    text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
   }
 
-  .matrix-button {
-    background: #000000 !important;
-    color: #00FF00 !important;
-    border: 2px solid #00FF00 !important;
-    font-family: 'Courier New', monospace !important;
-    text-transform: uppercase;
+  .vaporwave-value {
+    font-size: 2.5rem;
+    font-weight: 700;
+    background: linear-gradient(90deg, #FF00FF, #FF1493, #00FFFF);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    text-shadow: 0 0 20px rgba(255, 0, 255, 0.5);
+  }
+
+  .vaporwave-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+    margin: 20px 0;
+  }
+
+  .vaporwave-stat {
+    background: rgba(255, 0, 255, 0.1);
+    border: 1px solid #FF00FF;
+    padding: 20px;
+    text-align: center;
+    border-radius: 10px;
+    box-shadow: 0 0 20px rgba(255, 0, 255, 0.3);
+  }
+
+  .vaporwave-stat-label {
+    font-size: 0.8rem;
+    color: #00FFFF;
     letter-spacing: 2px;
-    padding: 10px 20px !important;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    box-shadow: 0 0 10px rgba(0, 255, 0, 0.3);
-  }
-
-  .matrix-button:hover:not(:disabled) {
-    background: #00FF00 !important;
-    color: #000000 !important;
-    box-shadow: 0 0 20px rgba(0, 255, 0, 0.6);
-  }
-
-  .matrix-button:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
-  .matrix-button-active {
-    background: #00FF00 !important;
-    color: #000000 !important;
-    box-shadow: 0 0 20px rgba(0, 255, 0, 0.8);
-  }
-
-  .matrix-ticket {
-    background: rgba(0, 40, 0, 0.8) !important;
-    border: 1px solid #00AA00 !important;
-    padding: 15px;
     margin-bottom: 10px;
   }
 
-  .matrix-ticket-winner {
-    background: rgba(0, 80, 0, 0.9) !important;
-    border: 2px solid #00FF00 !important;
-    box-shadow: 0 0 15px rgba(0, 255, 0, 0.5);
-    animation: flicker 2s infinite;
+  .vaporwave-stat-value {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #FF00FF;
+    text-shadow: 0 0 10px rgba(255, 0, 255, 0.8);
   }
 
-  .matrix-status-buyin {
-    color: #00FF00 !important;
-    text-shadow: 0 0 10px rgba(0, 255, 0, 1);
+  .vaporwave-button {
+    background: linear-gradient(135deg, #FF00FF, #FF1493);
+    color: #FFFFFF;
+    border: 2px solid #00FFFF;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1.1rem;
+    font-weight: 700;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    padding: 18px 40px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    width: 100%;
+    border-radius: 5px;
+    box-shadow: 0 0 20px rgba(255, 0, 255, 0.5), 0 5px 15px rgba(0, 0, 0, 0.3);
+    position: relative;
+    overflow: hidden;
   }
 
-  .matrix-status-farming {
-    color: #FFFF00 !important;
-    text-shadow: 0 0 10px rgba(255, 255, 0, 0.8);
+  .vaporwave-button::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+    transition: left 0.5s;
   }
 
-  .matrix-status-ended {
-    color: #FF0000 !important;
-    text-shadow: 0 0 10px rgba(255, 0, 0, 0.8);
+  .vaporwave-button:hover:not(:disabled)::before {
+    left: 100%;
   }
 
-  .matrix-border-top {
-    border-top: 1px solid #00FF00;
+  .vaporwave-button:hover:not(:disabled) {
+    background: linear-gradient(135deg, #00FFFF, #FF00FF);
+    box-shadow: 0 0 40px rgba(0, 255, 255, 0.8), 0 5px 20px rgba(0, 0, 0, 0.5);
+    transform: translateY(-2px);
+  }
+
+  .vaporwave-button:active:not(:disabled) {
+    transform: translateY(0);
+  }
+
+  .vaporwave-button:disabled {
+    background: rgba(100, 100, 100, 0.3);
+    border-color: #666666;
+    color: #999999;
+    cursor: not-allowed;
+    box-shadow: none;
+  }
+
+  .vaporwave-button-cyan {
+    background: linear-gradient(135deg, #00FFFF, #0099FF);
+    border-color: #FF00FF;
+  }
+
+  .vaporwave-button-cyan:hover:not(:disabled) {
+    background: linear-gradient(135deg, #FF00FF, #00FFFF);
+  }
+
+  .vaporwave-button-active {
+    background: linear-gradient(135deg, #FFD700, #FFA500);
+    box-shadow: 0 0 30px rgba(255, 215, 0, 0.8);
+    animation: rainbow 3s linear infinite;
+  }
+
+  .vaporwave-ticket {
+    background: rgba(0, 255, 255, 0.1);
+    border: 2px solid #00FFFF;
+    padding: 20px;
+    margin-bottom: 15px;
+    border-radius: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 0 15px rgba(0, 255, 255, 0.3);
+    transition: all 0.3s ease;
+  }
+
+  .vaporwave-ticket:hover {
+    transform: translateX(5px);
+    box-shadow: 0 0 25px rgba(0, 255, 255, 0.5);
+  }
+
+  .vaporwave-ticket-winner {
+    background: rgba(255, 0, 255, 0.2);
+    border: 3px solid #FF00FF;
+    box-shadow: 0 0 30px rgba(255, 0, 255, 0.6);
+    animation: glow-pulse 2s ease-in-out infinite;
+  }
+
+  .vaporwave-ticket-id {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #FF00FF;
+    text-shadow: 0 0 10px rgba(255, 0, 255, 0.8);
+  }
+
+  .vaporwave-ticket-amount {
+    font-size: 0.9rem;
+    color: #00FFFF;
+    margin-top: 5px;
+  }
+
+  .vaporwave-text {
+    color: #00FFFF;
+    line-height: 1.8;
     margin: 15px 0;
-    opacity: 0.5;
+    text-shadow: 0 0 5px rgba(0, 255, 255, 0.5);
   }
 
-  .cursor-blink::after {
-    content: "█";
-    animation: blink 1s infinite;
-    margin-left: 2px;
+  .vaporwave-status-buyin {
+    color: #00FF00;
+    text-shadow: 0 0 20px rgba(0, 255, 0, 0.8);
+  }
+
+  .vaporwave-status-farming {
+    color: #FFD700;
+    text-shadow: 0 0 20px rgba(255, 215, 0, 0.8);
+  }
+
+  .vaporwave-status-ended {
+    color: #FF1493;
+    text-shadow: 0 0 20px rgba(255, 20, 147, 0.8);
+  }
+
+  .vaporwave-winner-box {
+    background: rgba(255, 0, 255, 0.2);
+    border: 3px solid #FF00FF;
+    border-radius: 15px;
+    padding: 30px;
+    margin-top: 20px;
+    text-align: center;
+    animation: glow-pulse 2s ease-in-out infinite;
+  }
+
+  .vaporwave-winner-text {
+    font-size: 3rem;
+    font-weight: 900;
+    background: linear-gradient(90deg, #FF00FF, #FFD700, #00FFFF, #FF00FF);
+    background-size: 200% auto;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: gradient-shift 2s linear infinite;
+  }
+
+  @media (max-width: 768px) {
+    .vaporwave-title {
+      font-size: 2.5rem;
+    }
+
+    .vaporwave-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .vaporwave-winner-text {
+      font-size: 2rem;
+    }
   }
 `;
 
@@ -431,11 +607,11 @@ export const Lottery = () => {
   const getStatusClass = () => {
     switch (lotteryState?.status) {
       case LotteryStatus.BuyIn:
-        return "matrix-status-buyin";
+        return "vaporwave-status-buyin";
       case LotteryStatus.YieldFarming:
-        return "matrix-status-farming";
+        return "vaporwave-status-farming";
       case LotteryStatus.Ended:
-        return "matrix-status-ended";
+        return "vaporwave-status-ended";
       default:
         return "";
     }
@@ -449,24 +625,22 @@ export const Lottery = () => {
 
   if (!address) {
     return (
-      <div className="matrix-container">
-        <style>{matrixStyles}</style>
-        <div style={{ maxWidth: "800px", margin: "0 auto" }}>
-          <div className="matrix-card">
-            <div className="matrix-title" style={{ marginBottom: "20px" }}>
-              ╔═══════════════════════════════════╗
+      <div className="vaporwave-container">
+        <style>{vaporwaveStyles}</style>
+        <div className="vaporwave-content">
+          <div className="vaporwave-header">
+            <div className="vaporwave-title">NO LOSS LOTTERY</div>
+            <div className="vaporwave-subtitle">◈ CONNECT WALLET ◈</div>
+          </div>
+          <div className="vaporwave-card">
+            <div
+              className="vaporwave-text"
+              style={{ textAlign: "center", fontSize: "1.2rem" }}
+            >
+              ⟐ WALLET CONNECTION REQUIRED ⟐
               <br />
-              ║ NO-LOSS LOTTERY PROTOCOL V1.0 ║
               <br />
-              ╚═══════════════════════════════════╝
-            </div>
-            <div className="matrix-text">
-              &gt; ACCESS DENIED
-              <br />
-              &gt; WALLET CONNECTION REQUIRED
-              <br />
-              &gt; PLEASE AUTHENTICATE TO CONTINUE
-              <span className="cursor-blink"></span>
+              Connect your wallet to access the lottery
             </div>
           </div>
         </div>
@@ -476,24 +650,22 @@ export const Lottery = () => {
 
   if (!isFunded) {
     return (
-      <div className="matrix-container">
-        <style>{matrixStyles}</style>
-        <div style={{ maxWidth: "800px", margin: "0 auto" }}>
-          <div className="matrix-card">
-            <div className="matrix-title" style={{ marginBottom: "20px" }}>
-              ╔═══════════════════════════════════╗
+      <div className="vaporwave-container">
+        <style>{vaporwaveStyles}</style>
+        <div className="vaporwave-content">
+          <div className="vaporwave-header">
+            <div className="vaporwave-title">NO LOSS LOTTERY</div>
+            <div className="vaporwave-subtitle">◈ INSUFFICIENT FUNDS ◈</div>
+          </div>
+          <div className="vaporwave-card">
+            <div
+              className="vaporwave-text"
+              style={{ textAlign: "center", fontSize: "1.2rem" }}
+            >
+              ⟐ PLEASE FUND YOUR ACCOUNT ⟐
               <br />
-              ║ NO-LOSS LOTTERY PROTOCOL V1.0 ║
               <br />
-              ╚═══════════════════════════════════╝
-            </div>
-            <div className="matrix-text">
-              &gt; WALLET DETECTED: {address.substring(0, 12)}...
-              <br />
-              &gt; ERROR: INSUFFICIENT FUNDS
-              <br />
-              &gt; PLEASE FUND YOUR ACCOUNT TO PROCEED
-              <span className="cursor-blink"></span>
+              {address.substring(0, 12)}...
             </div>
           </div>
         </div>
@@ -503,24 +675,19 @@ export const Lottery = () => {
 
   if (isLoading || !lotteryState) {
     return (
-      <div className="matrix-container">
-        <style>{matrixStyles}</style>
-        <div style={{ maxWidth: "800px", margin: "0 auto" }}>
-          <div className="matrix-card">
-            <div className="matrix-title" style={{ marginBottom: "20px" }}>
-              ╔═══════════════════════════════════╗
-              <br />
-              ║ NO-LOSS LOTTERY PROTOCOL V1.0 ║
-              <br />
-              ╚═══════════════════════════════════╝
-            </div>
-            <div className="matrix-text">
-              &gt; CONNECTING TO BLOCKCHAIN...
-              <br />
-              &gt; DECRYPTING CONTRACT STATE...
-              <br />
-              &gt; LOADING DATA
-              <span className="cursor-blink"></span>
+      <div className="vaporwave-container">
+        <style>{vaporwaveStyles}</style>
+        <div className="vaporwave-content">
+          <div className="vaporwave-header">
+            <div className="vaporwave-title">NO LOSS LOTTERY</div>
+            <div className="vaporwave-subtitle">◈ LOADING ◈</div>
+          </div>
+          <div className="vaporwave-card">
+            <div
+              className="vaporwave-text"
+              style={{ textAlign: "center", fontSize: "1.2rem" }}
+            >
+              ⟐ CONNECTING TO BLOCKCHAIN ⟐
             </div>
           </div>
         </div>
@@ -529,170 +696,131 @@ export const Lottery = () => {
   }
 
   return (
-    <div className="matrix-container">
-      <style>{matrixStyles}</style>
-      <div style={{ maxWidth: "800px", margin: "0 auto" }}>
+    <div className="vaporwave-container">
+      <style>{vaporwaveStyles}</style>
+      <div className="vaporwave-content">
         {/* Header */}
-        <div className="matrix-card">
-          <div className="matrix-title" style={{ marginBottom: "20px" }}>
-            ╔═══════════════════════════════════╗
-            <br />
-            ║ NO-LOSS LOTTERY PROTOCOL V1.0 ║
-            <br />
-            ╚═══════════════════════════════════╝
+        <div className="vaporwave-header">
+          <div className="vaporwave-title">NO LOSS LOTTERY</div>
+          <div className="vaporwave-subtitle">◈ VAPORWAVE PROTOCOL V1.0 ◈</div>
+        </div>
+
+        {/* Status Card */}
+        <div className="vaporwave-card">
+          <div className="vaporwave-label">◈ CURRENT STATUS ◈</div>
+          <div className={`vaporwave-value ${getStatusClass()}`}>
+            {lotteryState.status}
           </div>
-          <div className="matrix-text" style={{ marginBottom: "10px" }}>
-            &gt; STATUS:{" "}
-            <span className={getStatusClass()}>[{lotteryState.status}]</span>
+        </div>
+
+        {/* Stats Grid */}
+        <div className="vaporwave-grid">
+          <div className="vaporwave-stat">
+            <div className="vaporwave-stat-label">PARTICIPANTS</div>
+            <div className="vaporwave-stat-value">
+              {lotteryState.no_participants}
+            </div>
           </div>
-          <div className="matrix-text-dim" style={{ marginBottom: "5px" }}>
-            &gt; PARTICIPANTS: {lotteryState.no_participants}
+          <div className="vaporwave-stat">
+            <div className="vaporwave-stat-label">TOTAL YIELD</div>
+            <div className="vaporwave-stat-value">
+              {(Number(lotteryState.amount_of_yield) / 10000000).toFixed(4)}
+            </div>
           </div>
-          <div className="matrix-text-dim">
-            &gt; TOTAL_YIELD:{" "}
-            {(Number(lotteryState.amount_of_yield) / 10000000).toFixed(7)} XLM
-          </div>
-          <div className="matrix-border-top"></div>
-          <div className="matrix-text-dim" style={{ fontSize: "0.85rem" }}>
-            {lotteryState.status === LotteryStatus.BuyIn &&
-              "&gt; Phase active: Ticket purchases enabled"}
-            {lotteryState.status === LotteryStatus.YieldFarming &&
-              "&gt; Yield farming in progress... please wait"}
-            {lotteryState.status === LotteryStatus.Ended &&
-              "&gt; Lottery complete. Execute raffle protocol."}
+          <div className="vaporwave-stat">
+            <div className="vaporwave-stat-label">TICKET COST</div>
+            <div className="vaporwave-stat-value">{ticketAmountXLM} XLM</div>
           </div>
         </div>
 
         {/* Admin Controls */}
         {isAdmin && (
-          <div
-            className="matrix-card"
-            style={{
-              borderColor: "#FFFF00",
-              boxShadow: "0 0 20px rgba(255, 255, 0, 0.3)",
-            }}
-          >
-            <div
-              className="matrix-title"
-              style={{
-                marginBottom: "15px",
-                color: "#FFFF00",
-                textShadow: "0 0 10px rgba(255, 255, 0, 0.8)",
-              }}
-            >
-              [ADMIN_ACCESS_GRANTED]
-            </div>
-            <div
-              className="matrix-text"
-              style={{ marginBottom: "15px", color: "#FFFF00" }}
-            >
-              &gt; CHANGE_LOTTERY_STATUS:
-            </div>
-            <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+          <div className="vaporwave-card">
+            <div className="vaporwave-label">◈ ADMIN CONTROLS ◈</div>
+            <div className="vaporwave-grid">
               <button
                 type="button"
-                className={`matrix-button ${lotteryState.status === LotteryStatus.BuyIn ? "matrix-button-active" : ""}`}
+                className={`vaporwave-button ${lotteryState.status === LotteryStatus.BuyIn ? "vaporwave-button-active" : ""}`}
                 onClick={() => void changeStatus(LotteryStatus.BuyIn)}
                 disabled={isSubmitting}
               >
-                [BUY_IN]
+                BUY IN
               </button>
               <button
                 type="button"
-                className={`matrix-button ${lotteryState.status === LotteryStatus.YieldFarming ? "matrix-button-active" : ""}`}
+                className={`vaporwave-button ${lotteryState.status === LotteryStatus.YieldFarming ? "vaporwave-button-active" : ""}`}
                 onClick={() => void changeStatus(LotteryStatus.YieldFarming)}
                 disabled={isSubmitting}
               >
-                [FARMING]
+                FARMING
               </button>
               <button
                 type="button"
-                className={`matrix-button ${lotteryState.status === LotteryStatus.Ended ? "matrix-button-active" : ""}`}
+                className={`vaporwave-button ${lotteryState.status === LotteryStatus.Ended ? "vaporwave-button-active" : ""}`}
                 onClick={() => void changeStatus(LotteryStatus.Ended)}
                 disabled={isSubmitting}
               >
-                [END]
+                END
               </button>
             </div>
           </div>
         )}
 
         {/* Buy Ticket */}
-        <div className="matrix-card">
-          <div
-            className="matrix-title"
-            style={{ marginBottom: "15px", fontSize: "1.1rem" }}
-          >
-            [PURCHASE_TICKET]
-          </div>
-          <div
-            className="matrix-text-dim"
-            style={{ marginBottom: "15px", fontSize: "0.9rem" }}
-          >
-            &gt; Submit {ticketAmountXLM} XLM to enter lottery pool
+        <div className="vaporwave-card">
+          <div className="vaporwave-label">◈ PURCHASE TICKET ◈</div>
+          <div className="vaporwave-text">
+            ⟐ Submit {ticketAmountXLM} XLM to enter the lottery pool
             <br />
-            &gt; Funds returned regardless of outcome
-            <br />
-            &gt; One winner receives all yield
+            ⟐ Your funds will be returned regardless of outcome
+            <br />⟐ One winner receives all yield
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
-            <div className="matrix-text">&gt; COST: {ticketAmountXLM} XLM</div>
-            <button
-              type="button"
-              className="matrix-button"
-              onClick={() => void buyTicket()}
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? "[PROCESSING...]" : "[EXECUTE]"}
-            </button>
-          </div>
+          <button
+            type="button"
+            className="vaporwave-button vaporwave-button-cyan"
+            onClick={() => void buyTicket()}
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? "◈ PROCESSING ◈" : "◈ BUY TICKET ◈"}
+          </button>
         </div>
 
         {/* My Tickets */}
         {myTickets.length > 0 && (
-          <div className="matrix-card">
-            <div className="matrix-title" style={{ marginBottom: "15px" }}>
-              [YOUR_TICKETS] ({myTickets.length})
+          <div className="vaporwave-card">
+            <div className="vaporwave-label">
+              ◈ YOUR TICKETS ({myTickets.length}) ◈
             </div>
             {myTickets.map((ticket) => (
               <div
                 key={ticket.id}
                 className={
                   ticket.won
-                    ? "matrix-ticket matrix-ticket-winner"
-                    : "matrix-ticket"
+                    ? "vaporwave-ticket vaporwave-ticket-winner"
+                    : "vaporwave-ticket"
                 }
               >
-                <div
+                <div>
+                  <div className="vaporwave-ticket-id">
+                    ⟐ TICKET #{ticket.id} {ticket.won && "★ WINNER ★"}
+                  </div>
+                  <div className="vaporwave-ticket-amount">
+                    {(Number(ticket.amount) / 10000000).toFixed(7)} XLM
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="vaporwave-button"
+                  onClick={() => void redeemTicket(ticket)}
+                  disabled={isSubmitting}
                   style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
+                    width: "auto",
+                    padding: "12px 30px",
+                    fontSize: "0.9rem",
                   }}
                 >
-                  <div>
-                    <div className="matrix-text">
-                      &gt; TICKET_ID: #{ticket.id}{" "}
-                      {ticket.won && "[***WINNER***]"}
-                    </div>
-                    <div
-                      className="matrix-text-dim"
-                      style={{ fontSize: "0.85rem" }}
-                    >
-                      &gt; AMOUNT:{" "}
-                      {(Number(ticket.amount) / 10000000).toFixed(7)} XLM
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    className="matrix-button"
-                    onClick={() => void redeemTicket(ticket)}
-                    disabled={isSubmitting}
-                    style={{ fontSize: "0.85rem", padding: "8px 15px" }}
-                  >
-                    [REDEEM]
-                  </button>
-                </div>
+                  REDEEM
+                </button>
               </div>
             ))}
           </div>
@@ -700,42 +828,26 @@ export const Lottery = () => {
 
         {/* Raffle */}
         {lotteryState.status === LotteryStatus.Ended && isAdmin && (
-          <div className="matrix-card">
-            <div className="matrix-title" style={{ marginBottom: "15px" }}>
-              [EXECUTE_RAFFLE]
-            </div>
-            <div className="matrix-text-dim" style={{ marginBottom: "15px" }}>
-              &gt; Lottery phase complete
-              <br />
-              &gt; Execute random winner selection protocol
+          <div className="vaporwave-card">
+            <div className="vaporwave-label">◈ EXECUTE RAFFLE ◈</div>
+            <div className="vaporwave-text">
+              ⟐ Lottery phase complete
+              <br />⟐ Execute random winner selection protocol
             </div>
             <button
               type="button"
-              className="matrix-button"
+              className="vaporwave-button"
               onClick={() => void runRaffle()}
               disabled={isSubmitting}
             >
-              {isSubmitting ? "[PROCESSING...]" : "[RUN_RAFFLE]"}
+              {isSubmitting ? "◈ PROCESSING ◈" : "◈ RUN RAFFLE ◈"}
             </button>
             {winningTicket && (
-              <div
-                style={{
-                  marginTop: "20px",
-                  padding: "15px",
-                  border: "2px solid #00FF00",
-                  background: "rgba(0, 80, 0, 0.5)",
-                }}
-              >
-                <div
-                  className="matrix-text"
-                  style={{ fontSize: "1.1rem", marginBottom: "10px" }}
-                >
-                  *** WINNER_SELECTED ***
-                </div>
-                <div className="matrix-text">
-                  &gt; TICKET_ID: #{winningTicket.id}
-                  <br />
-                  &gt; REWARD: DEPOSIT + YIELD
+              <div className="vaporwave-winner-box">
+                <div className="vaporwave-label">◈ WINNER SELECTED ◈</div>
+                <div className="vaporwave-winner-text">#{winningTicket.id}</div>
+                <div className="vaporwave-text" style={{ marginTop: "10px" }}>
+                  ⟐ REWARD: DEPOSIT + ALL YIELD ⟐
                 </div>
               </div>
             )}
@@ -743,23 +855,17 @@ export const Lottery = () => {
         )}
 
         {/* Info */}
-        <div className="matrix-card">
-          <div className="matrix-title" style={{ marginBottom: "15px" }}>
-            [PROTOCOL_INFO]
-          </div>
-          <div
-            className="matrix-text-dim"
-            style={{ fontSize: "0.9rem", lineHeight: "1.8" }}
-          >
-            &gt; [1] BUY_IN_PERIOD: Purchase tickets with XLM
+        <div className="vaporwave-card">
+          <div className="vaporwave-label">◈ HOW IT WORKS ◈</div>
+          <div className="vaporwave-text">
+            ⟐ [1] BUY IN PERIOD — Purchase tickets with XLM
             <br />
-            &gt; [2] YIELD_FARMING: Funds generate yield via DeFi
+            ⟐ [2] YIELD FARMING — Funds generate yield via DeFi
             <br />
-            &gt; [3] LOTTERY_ENDS: Random winner selection
+            ⟐ [3] LOTTERY ENDS — Random winner selection
             <br />
-            &gt; [4] WINNER: Receives deposit + all yield
-            <br />
-            &gt; [5] OTHERS: Full deposit returned (no loss)
+            ⟐ [4] WINNER — Receives deposit + all yield
+            <br />⟐ [5] OTHERS — Full deposit returned (no loss)
           </div>
         </div>
       </div>
