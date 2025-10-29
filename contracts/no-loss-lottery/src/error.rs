@@ -11,4 +11,5 @@ pub enum LotteryError {
     TicketNotFound = 6,
     AlreadyInitialized = 7,
     NotAuthorized = 8,
+    SentToBlendNotFound = 9,
 }

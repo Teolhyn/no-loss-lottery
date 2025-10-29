@@ -36,6 +36,8 @@ enum Key {
     LotteryState,
     Ticket(u32),
     TicketCounter,
+    UserTickets(Address),
+    SentBalance,
 }
 
 pub fn write_admin(e: &Env, admin: &Address) {
@@ -124,4 +126,55 @@ pub fn get_and_increment_ticket_counter(e: &Env) -> u32 {
 
 pub fn remove_ticket(e: &Env, ticket: Ticket) {
     e.storage().temporary().remove(&Key::Ticket(ticket.id));
+}
+
+pub fn add_ticket_to_user(e: &Env, user: &Address, ticket_id: u32) {
+    let mut tickets: soroban_sdk::Vec<u32> = e
+        .storage()
+        .persistent()
+        .get(&Key::UserTickets(user.clone()))
+        .unwrap_or(soroban_sdk::Vec::new(e));
+
+    tickets.push_back(ticket_id);
+    e.storage()
+        .persistent()
+        .set(&Key::UserTickets(user.clone()), &tickets);
+}
+
+pub fn get_user_tickets(e: &Env, user: &Address) -> soroban_sdk::Vec<u32> {
+    e.storage()
+        .persistent()
+        .get(&Key::UserTickets(user.clone()))
+        .unwrap_or(soroban_sdk::Vec::new(e))
+}
+
+pub fn remove_ticket_from_user(e: &Env, user: &Address, ticket_id: u32) {
+    let tickets: soroban_sdk::Vec<u32> = e
+        .storage()
+        .persistent()
+        .get(&Key::UserTickets(user.clone()))
+        .unwrap_or(soroban_sdk::Vec::new(e));
+
+    // Find and remove the ticket_id
+    let mut new_tickets = soroban_sdk::Vec::new(e);
+    for id in tickets.iter() {
+        if id != ticket_id {
+            new_tickets.push_back(id);
+        }
+    }
+
+    e.storage()
+        .persistent()
+        .set(&Key::UserTickets(user.clone()), &new_tickets);
+}
+
+pub fn write_sent_balance(e: &Env, sent_amount: &i128) {
+    e.storage().persistent().set(&Key::SentBalance, sent_amount);
+}
+
+pub fn read_sent_balance(e: &Env) -> Result<i128, LotteryError> {
+    e.storage()
+        .persistent()
+        .get(&Key::SentBalance)
+        .ok_or(LotteryError::SentToBlendNotFound)
 }

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { Button, Text, Card } from "@stellar/design-system";
 import { useWallet } from "../hooks/useWallet";
 import { useWalletBalance } from "../hooks/useWalletBalance";
@@ -60,6 +60,34 @@ export const Lottery = () => {
     });
   }, [address, signTransaction]);
 
+  // Load user tickets from contract
+  const loadUserTickets = useCallback(async () => {
+    if (!address) {
+      setMyTickets([]);
+      return;
+    }
+
+    try {
+      const ticketsResult = await lotteryContract.get_user_tickets({
+        user: address,
+      });
+
+      if (ticketsResult.result.isOk()) {
+        const tickets = ticketsResult.result.unwrap();
+        const formattedTickets: Ticket[] = tickets.map((ticket) => ({
+          id: ticket.id,
+          user: ticket.user,
+          token: ticket.token,
+          amount: BigInt(ticket.amount.toString()),
+          won: ticket.won,
+        }));
+        setMyTickets(formattedTickets);
+      }
+    } catch (error) {
+      console.error("Error loading user tickets:", error);
+    }
+  }, [address]);
+
   // Load lottery state from contract
   useEffect(() => {
     const loadLotteryData = async () => {
@@ -115,6 +143,9 @@ export const Lottery = () => {
           }
         }
         setAdminAddress(adminAddressStr);
+
+        // Load user tickets
+        await loadUserTickets();
       } catch (error) {
         console.error("Error loading lottery data:", error);
         addNotification("Failed to load lottery data", "error");
@@ -124,7 +155,7 @@ export const Lottery = () => {
     };
 
     void loadLotteryData();
-  }, [addNotification]);
+  }, [addNotification, address, loadUserTickets]);
 
   if (!address) {
     return (
@@ -177,16 +208,9 @@ export const Lottery = () => {
         const error = response.result.unwrapErr();
         addNotification(`Error: ${JSON.stringify(error)}`, "error");
       } else {
-        const ticket = response.result.unwrap();
-        const newTicket: Ticket = {
-          id: ticket.id,
-          user: ticket.user,
-          token: ticket.token,
-          amount: BigInt(ticket.amount.toString()),
-          won: ticket.won,
-        };
-        setMyTickets([...myTickets, newTicket]);
         addNotification("Ticket purchased successfully!", "success");
+        // Reload tickets from contract
+        await loadUserTickets();
       }
     } catch (error) {
       addNotification("Failed to buy ticket", "error");
@@ -212,7 +236,8 @@ export const Lottery = () => {
             : "Ticket redeemed successfully",
           "success",
         );
-        setMyTickets(myTickets.filter((t) => t.id !== ticket.id));
+        // Reload tickets from contract
+        await loadUserTickets();
       }
     } catch (error) {
       addNotification("Failed to redeem ticket", "error");
@@ -243,10 +268,8 @@ export const Lottery = () => {
         setWinningTicket(winnerTicket);
         addNotification(`Ticket #${winner.id} won the lottery!`, "success");
 
-        // Update the ticket in myTickets if it's there
-        setMyTickets(
-          myTickets.map((t) => (t.id === winner.id ? winnerTicket : t)),
-        );
+        // Reload tickets from contract to reflect updated won status
+        await loadUserTickets();
       }
     } catch (error) {
       addNotification("Failed to run raffle", "error");
