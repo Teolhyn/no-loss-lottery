@@ -1,5 +1,4 @@
 import React from "react";
-import { Icon } from "@stellar/design-system";
 import { useWallet } from "../hooks/useWallet";
 import { stellarNetwork } from "../contracts/util";
 
@@ -12,9 +11,6 @@ const formatNetworkName = (name: string) =>
 
 const appNetwork = formatNetworkName(stellarNetwork);
 
-const bgColor = "#F0F2F5";
-const textColor = "#4A5362";
-
 const NetworkPill: React.FC = () => {
   const { network, address } = useWallet();
 
@@ -23,32 +19,44 @@ const NetworkPill: React.FC = () => {
   const isNetworkMismatch = walletNetwork !== appNetwork;
 
   let title = "";
-  let color = "#2ED06E";
+  let indicatorColor = "#FFAA00";
   if (!address) {
     title = "Connect your wallet using this network.";
-    color = "#C1C7D0";
+    indicatorColor = "#666";
   } else if (isNetworkMismatch) {
     title = `Wallet is on ${walletNetwork}, connect to ${appNetwork} instead.`;
-    color = "#FF3B30";
+    indicatorColor = "#FF3B30";
   }
 
   return (
     <div
       style={{
-        backgroundColor: bgColor,
-        color: textColor,
-        padding: "4px 10px",
-        borderRadius: "16px",
-        fontSize: "12px",
+        backgroundColor: "rgba(255, 170, 0, 0.1)",
+        color: "#FFAA00",
+        padding: "6px 12px",
+        border: "2px solid #FFAA00",
+        fontSize: "0.9rem",
+        fontFamily: "'Courier New', monospace",
         fontWeight: "bold",
         display: "flex",
         alignItems: "center",
-        gap: "4px",
+        gap: "8px",
         cursor: isNetworkMismatch ? "help" : "default",
+        letterSpacing: "1px",
+        textTransform: "uppercase",
+        textShadow: "0 0 5px #FFAA00",
       }}
       title={title}
     >
-      <Icon.Circle color={color} />
+      <span
+        style={{
+          width: "8px",
+          height: "8px",
+          borderRadius: "50%",
+          backgroundColor: indicatorColor,
+          boxShadow: `0 0 8px ${indicatorColor}`,
+        }}
+      />
       {appNetwork}
     </div>
   );

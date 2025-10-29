@@ -1,15 +1,37 @@
 import React, { useState, useTransition } from "react";
 import { useNotification } from "../hooks/useNotification.ts";
 import { useWallet } from "../hooks/useWallet.ts";
-import { Button, Tooltip } from "@stellar/design-system";
 import { getFriendbotUrl } from "../util/friendbot";
 import { useWalletBalance } from "../hooks/useWalletBalance.ts";
+
+const amberButtonStyle: React.CSSProperties = {
+  background: "transparent",
+  color: "#FFAA00",
+  border: "2px solid #FFAA00",
+  fontFamily: "'Courier New', monospace",
+  fontSize: "0.9rem",
+  fontWeight: "bold",
+  letterSpacing: "2px",
+  textTransform: "uppercase",
+  padding: "8px 16px",
+  cursor: "pointer",
+  transition: "all 0.2s",
+  textShadow: "0 0 5px #FFAA00",
+  boxShadow: "0 0 15px rgba(255, 170, 0, 0.2)",
+};
+
+const amberButtonHoverStyle: React.CSSProperties = {
+  ...amberButtonStyle,
+  background: "rgba(255, 170, 0, 0.1)",
+  boxShadow: "0 0 30px rgba(255, 170, 0, 0.4)",
+  textShadow: "0 0 10px #FFAA00, 0 0 20px #FFAA00",
+};
 
 const FundAccountButton: React.FC = () => {
   const { addNotification } = useNotification();
   const [isPending, startTransition] = useTransition();
   const { isFunded, isLoading } = useWalletBalance();
-  const [isTooltipVisible, setIsTooltipVisible] = useState(false);
+  const [isHovering, setIsHovering] = useState(false);
   const { address } = useWallet();
 
   if (!address) return null;
@@ -40,34 +62,30 @@ const FundAccountButton: React.FC = () => {
     });
   };
 
+  const isDisabled = isPending || isLoading || isFunded;
+
   return (
-    <div
-      onMouseEnter={() => setIsTooltipVisible(true)}
-      onMouseLeave={() => setIsTooltipVisible(false)}
+    <button
+      type="button"
+      disabled={isDisabled}
+      onClick={handleFundAccount}
+      style={
+        isDisabled
+          ? { ...amberButtonStyle, opacity: 0.3, cursor: "not-allowed" }
+          : isHovering
+            ? amberButtonHoverStyle
+            : amberButtonStyle
+      }
+      onMouseEnter={() => !isDisabled && setIsHovering(true)}
+      onMouseLeave={() => setIsHovering(false)}
+      title={
+        isFunded
+          ? "Account is already funded"
+          : "Fund your account using the Stellar Friendbot"
+      }
     >
-      <Tooltip
-        isVisible={isTooltipVisible}
-        isContrast
-        title="Fund Account"
-        placement="bottom"
-        triggerEl={
-          <Button
-            disabled={isPending || isLoading || isFunded}
-            onClick={handleFundAccount}
-            variant="primary"
-            size="md"
-          >
-            Fund Account
-          </Button>
-        }
-      >
-        <div style={{ width: "13em" }}>
-          {isFunded
-            ? "Account is already funded"
-            : "Fund your account using the Stellar Friendbot"}
-        </div>
-      </Tooltip>
-    </div>
+      {isPending ? "Funding..." : "Fund Account"}
+    </button>
   );
 };
 

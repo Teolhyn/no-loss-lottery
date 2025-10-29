@@ -4,349 +4,411 @@ import { useWalletBalance } from "../hooks/useWalletBalance";
 import { useNotification } from "../hooks/useNotification";
 import lotteryContract from "../contracts/no_loss_lottery";
 import * as NoLossLottery from "no_loss_lottery";
-import { rpcUrl } from "../contracts/util";
+import { rpcUrl, stellarNetwork } from "../contracts/util";
 import { Address } from "@stellar/stellar-sdk";
+import { WalletButton } from "./WalletButton";
+import NetworkPill from "./NetworkPill";
+import FundAccountButton from "./FundAccountButton";
+import { useNavigate } from "react-router-dom";
 
-// Vaporwave Theme CSS
-const vaporwaveStyles = `
-  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
-
-  @keyframes float {
-    0%, 100% { transform: translateY(0px); }
-    50% { transform: translateY(-10px); }
+// 80s Amber Terminal Theme CSS
+const amberStyles = `
+  @keyframes blink {
+    0%, 49% { opacity: 1; }
+    50%, 100% { opacity: 0; }
   }
 
-  @keyframes glow-pulse {
-    0%, 100% {
-      box-shadow: 0 0 20px rgba(255, 0, 255, 0.5),
-                  0 0 40px rgba(0, 255, 255, 0.3),
-                  inset 0 0 20px rgba(255, 0, 255, 0.1);
-    }
-    50% {
-      box-shadow: 0 0 40px rgba(255, 0, 255, 0.8),
-                  0 0 60px rgba(0, 255, 255, 0.6),
-                  inset 0 0 30px rgba(255, 0, 255, 0.2);
-    }
-  }
-
-  @keyframes gradient-shift {
-    0% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
-    100% { background-position: 0% 50%; }
-  }
-
-  @keyframes rainbow {
-    0% { filter: hue-rotate(0deg); }
-    100% { filter: hue-rotate(360deg); }
-  }
-
-  .vaporwave-container {
-    background: linear-gradient(135deg, #1a0033 0%, #330066 25%, #0d1b2a 50%, #1b263b 75%, #0d0d2b 100%);
-    background-size: 400% 400%;
-    animation: gradient-shift 15s ease infinite;
-    color: #FF00FF;
-    font-family: 'Orbitron', sans-serif;
+  .amber-container {
+    background: #0A0500;
+    color: #FFAA00;
+    font-family: 'Courier New', monospace;
     min-height: 100vh;
-    padding: 20px;
+    padding: 0;
+    margin: 0;
     position: relative;
-    overflow: hidden;
   }
 
-  .vaporwave-container::before {
+  .amber-container::before {
     content: "";
     position: fixed;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    background:
-      repeating-linear-gradient(
-        0deg,
-        rgba(255, 0, 255, 0.03) 0px,
-        transparent 2px,
-        transparent 4px,
-        rgba(255, 0, 255, 0.03) 6px
-      ),
-      repeating-linear-gradient(
-        90deg,
-        rgba(0, 255, 255, 0.03) 0px,
-        transparent 2px,
-        transparent 4px,
-        rgba(0, 255, 255, 0.03) 6px
-      );
+    background: repeating-linear-gradient(
+      0deg,
+      rgba(0, 0, 0, 0.15) 0px,
+      rgba(0, 0, 0, 0.15) 2px,
+      transparent 2px,
+      transparent 4px
+    );
     pointer-events: none;
-    z-index: 1;
+    z-index: 999;
   }
 
-  .vaporwave-content {
+  .amber-container::after {
+    content: "";
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: radial-gradient(ellipse at center, transparent 0%, rgba(0, 0, 0, 0.3) 100%);
+    pointer-events: none;
+    z-index: 998;
+  }
+
+  .amber-content {
     position: relative;
-    z-index: 2;
+    z-index: 10;
     max-width: 1000px;
     margin: 0 auto;
+    padding: 0 20px 20px 20px;
   }
 
-  .vaporwave-header {
+  .amber-header {
     text-align: center;
-    margin-bottom: 40px;
-    animation: float 3s ease-in-out infinite;
-  }
-
-  .vaporwave-title {
-    font-size: 4rem;
-    font-weight: 900;
-    margin: 0;
-    background: linear-gradient(90deg, #FF00FF, #00FFFF, #FF00FF);
-    background-size: 200% auto;
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    animation: gradient-shift 3s linear infinite;
-    text-shadow: 0 0 30px rgba(255, 0, 255, 0.5);
-    letter-spacing: 8px;
-  }
-
-  .vaporwave-subtitle {
-    font-size: 1.2rem;
-    color: #00FFFF;
-    text-shadow: 0 0 10px rgba(0, 255, 255, 0.8);
-    letter-spacing: 6px;
-    margin-top: 10px;
-  }
-
-  .vaporwave-card {
-    background: rgba(26, 0, 51, 0.6);
-    border: 2px solid;
-    border-image: linear-gradient(135deg, #FF00FF, #00FFFF, #FF1493) 1;
-    padding: 30px;
+    padding: 20px;
+    border-bottom: 2px solid #FFAA00;
     margin-bottom: 20px;
-    backdrop-filter: blur(10px);
-    animation: glow-pulse 3s ease-in-out infinite;
     position: relative;
   }
 
-  .vaporwave-card::before {
-    content: "";
+  .amber-wallet-bar {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    padding: 20px;
+    margin: 0 0 20px 0;
+    border: 2px solid #FFAA00;
+    background: rgba(255, 170, 0, 0.03);
+    box-shadow: 0 0 20px rgba(255, 170, 0, 0.1);
+    position: relative;
+  }
+
+  .amber-wallet-bar::before {
+    content: "┌";
     position: absolute;
     top: -2px;
     left: -2px;
-    right: -2px;
-    bottom: -2px;
-    background: linear-gradient(135deg, #FF00FF, #00FFFF, #FF1493, #FF00FF);
-    background-size: 300% 300%;
-    animation: gradient-shift 4s ease infinite;
-    z-index: -1;
-    opacity: 0.3;
-    filter: blur(10px);
+    font-size: 1.5rem;
   }
 
-  .vaporwave-label {
+  .amber-wallet-bar::after {
+    content: "┘";
+    position: absolute;
+    bottom: -2px;
+    right: -2px;
+    font-size: 1.5rem;
+  }
+
+  .amber-debug-button {
+    background: transparent;
+    color: #FFAA00;
+    border: 2px solid #FFAA00;
+    font-family: 'Courier New', monospace;
+    fontSize: 0.9rem;
+    font-weight: bold;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    padding: 8px 16px;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-shadow: 0 0 5px #FFAA00;
+    box-shadow: 0 0 15px rgba(255, 170, 0, 0.2);
+    text-decoration: none;
+    display: inline-block;
+  }
+
+  .amber-debug-button:hover {
+    background: rgba(255, 170, 0, 0.1);
+    box-shadow: 0 0 30px rgba(255, 170, 0, 0.4);
+    text-shadow: 0 0 10px #FFAA00, 0 0 20px #FFAA00;
+  }
+
+  .amber-header::before {
+    content: "┌─────────────────────────────────────────────────┐";
+    display: block;
+    margin-bottom: 15px;
+    font-size: 0.8rem;
+    letter-spacing: 1px;
+  }
+
+  .amber-header::after {
+    content: "└─────────────────────────────────────────────────┘";
+    display: block;
+    margin-top: 10px;
+    font-size: 0.8rem;
+    letter-spacing: 1px;
+  }
+
+  .amber-title {
+    font-size: 2.5rem;
+    font-weight: bold;
+    margin: 15px 0;
+    text-shadow: 0 0 10px #FFAA00, 0 0 20px #FFAA00;
+    letter-spacing: 8px;
+  }
+
+  .amber-subtitle {
+    font-size: 1rem;
+    margin-top: 10px;
+    letter-spacing: 4px;
+  }
+
+  .amber-section {
+    border: 2px solid #FFAA00;
+    padding: 25px;
+    margin-bottom: 20px;
+    background: rgba(255, 170, 0, 0.03);
+    box-shadow: 0 0 20px rgba(255, 170, 0, 0.1);
+    position: relative;
+  }
+
+  .amber-section::before {
+    content: "┌";
+    position: absolute;
+    top: -2px;
+    left: -2px;
+    font-size: 1.5rem;
+  }
+
+  .amber-section::after {
+    content: "┘";
+    position: absolute;
+    bottom: -2px;
+    right: -2px;
+    font-size: 1.5rem;
+  }
+
+  .amber-label {
     font-size: 0.9rem;
-    color: #00FFFF;
+    font-weight: bold;
     text-transform: uppercase;
     letter-spacing: 3px;
     margin-bottom: 10px;
-    text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+    display: block;
+    text-shadow: 0 0 8px #FFAA00;
   }
 
-  .vaporwave-value {
-    font-size: 2.5rem;
-    font-weight: 700;
-    background: linear-gradient(90deg, #FF00FF, #FF1493, #00FFFF);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    text-shadow: 0 0 20px rgba(255, 0, 255, 0.5);
+  .amber-label::before {
+    content: "> ";
   }
 
-  .vaporwave-grid {
+  .amber-value {
+    font-size: 3rem;
+    font-weight: bold;
+    margin: 15px 0;
+    text-shadow: 0 0 15px #FFAA00, 0 0 25px #FFAA00;
+    letter-spacing: 2px;
+  }
+
+  .amber-status-buyin {
+    color: #FFAA00;
+  }
+
+  .amber-status-farming {
+    color: #FFD700;
+  }
+
+  .amber-status-ended {
+    color: #FF8800;
+  }
+
+  .amber-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 20px;
+    gap: 15px;
     margin: 20px 0;
   }
 
-  .vaporwave-stat {
-    background: rgba(255, 0, 255, 0.1);
-    border: 1px solid #FF00FF;
+  .amber-stat {
+    border: 2px solid #FFAA00;
     padding: 20px;
     text-align: center;
-    border-radius: 10px;
-    box-shadow: 0 0 20px rgba(255, 0, 255, 0.3);
+    background: rgba(255, 170, 0, 0.05);
   }
 
-  .vaporwave-stat-label {
+  .amber-stat-label {
     font-size: 0.8rem;
-    color: #00FFFF;
     letter-spacing: 2px;
     margin-bottom: 10px;
+    text-transform: uppercase;
+    opacity: 0.8;
   }
 
-  .vaporwave-stat-value {
-    font-size: 2rem;
-    font-weight: 700;
-    color: #FF00FF;
-    text-shadow: 0 0 10px rgba(255, 0, 255, 0.8);
+  .amber-stat-value {
+    font-size: 2.5rem;
+    font-weight: bold;
+    text-shadow: 0 0 10px #FFAA00;
   }
 
-  .vaporwave-button {
-    background: linear-gradient(135deg, #FF00FF, #FF1493);
-    color: #FFFFFF;
-    border: 2px solid #00FFFF;
-    font-family: 'Orbitron', sans-serif;
+  .amber-button {
+    background: transparent;
+    color: #FFAA00;
+    border: 2px solid #FFAA00;
+    font-family: 'Courier New', monospace;
     font-size: 1.1rem;
-    font-weight: 700;
+    font-weight: bold;
     letter-spacing: 3px;
     text-transform: uppercase;
-    padding: 18px 40px;
+    padding: 15px 30px;
     cursor: pointer;
-    transition: all 0.3s ease;
+    transition: all 0.2s;
     width: 100%;
-    border-radius: 5px;
-    box-shadow: 0 0 20px rgba(255, 0, 255, 0.5), 0 5px 15px rgba(0, 0, 0, 0.3);
-    position: relative;
-    overflow: hidden;
+    margin: 10px 0;
+    text-shadow: 0 0 5px #FFAA00;
+    box-shadow: 0 0 15px rgba(255, 170, 0, 0.2);
   }
 
-  .vaporwave-button::before {
-    content: "";
-    position: absolute;
-    top: 0;
-    left: -100%;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
-    transition: left 0.5s;
+  .amber-button::before {
+    content: "[";
+    margin-right: 10px;
   }
 
-  .vaporwave-button:hover:not(:disabled)::before {
-    left: 100%;
+  .amber-button::after {
+    content: "]";
+    margin-left: 10px;
   }
 
-  .vaporwave-button:hover:not(:disabled) {
-    background: linear-gradient(135deg, #00FFFF, #FF00FF);
-    box-shadow: 0 0 40px rgba(0, 255, 255, 0.8), 0 5px 20px rgba(0, 0, 0, 0.5);
-    transform: translateY(-2px);
+  .amber-button:hover:not(:disabled) {
+    background: rgba(255, 170, 0, 0.1);
+    box-shadow: 0 0 30px rgba(255, 170, 0, 0.4);
+    text-shadow: 0 0 10px #FFAA00, 0 0 20px #FFAA00;
   }
 
-  .vaporwave-button:active:not(:disabled) {
-    transform: translateY(0);
+  .amber-button:active:not(:disabled) {
+    transform: scale(0.98);
   }
 
-  .vaporwave-button:disabled {
-    background: rgba(100, 100, 100, 0.3);
-    border-color: #666666;
-    color: #999999;
+  .amber-button:disabled {
+    opacity: 0.3;
     cursor: not-allowed;
-    box-shadow: none;
   }
 
-  .vaporwave-button-cyan {
-    background: linear-gradient(135deg, #00FFFF, #0099FF);
-    border-color: #FF00FF;
+  .amber-button-active {
+    background: rgba(255, 170, 0, 0.15);
+    box-shadow: 0 0 25px rgba(255, 170, 0, 0.5), inset 0 0 20px rgba(255, 170, 0, 0.2);
   }
 
-  .vaporwave-button-cyan:hover:not(:disabled) {
-    background: linear-gradient(135deg, #FF00FF, #00FFFF);
-  }
-
-  .vaporwave-button-active {
-    background: linear-gradient(135deg, #FFD700, #FFA500);
-    box-shadow: 0 0 30px rgba(255, 215, 0, 0.8);
-    animation: rainbow 3s linear infinite;
-  }
-
-  .vaporwave-ticket {
-    background: rgba(0, 255, 255, 0.1);
-    border: 2px solid #00FFFF;
-    padding: 20px;
+  .amber-ticket {
+    border: 2px solid #FFAA00;
+    padding: 15px;
     margin-bottom: 15px;
-    border-radius: 10px;
+    background: rgba(255, 170, 0, 0.03);
     display: flex;
     justify-content: space-between;
     align-items: center;
-    box-shadow: 0 0 15px rgba(0, 255, 255, 0.3);
-    transition: all 0.3s ease;
+    position: relative;
   }
 
-  .vaporwave-ticket:hover {
-    transform: translateX(5px);
-    box-shadow: 0 0 25px rgba(0, 255, 255, 0.5);
+  .amber-ticket::before {
+    content: "│";
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 2rem;
+    opacity: 0.5;
   }
 
-  .vaporwave-ticket-winner {
-    background: rgba(255, 0, 255, 0.2);
-    border: 3px solid #FF00FF;
-    box-shadow: 0 0 30px rgba(255, 0, 255, 0.6);
-    animation: glow-pulse 2s ease-in-out infinite;
+  .amber-ticket-winner {
+    background: rgba(255, 170, 0, 0.15);
+    border-color: #FFD700;
+    box-shadow: 0 0 30px rgba(255, 170, 0, 0.5);
   }
 
-  .vaporwave-ticket-id {
+  .amber-ticket-winner::before {
+    content: "★";
+    color: #FFD700;
+  }
+
+  .amber-ticket-id {
     font-size: 1.5rem;
-    font-weight: 700;
-    color: #FF00FF;
-    text-shadow: 0 0 10px rgba(255, 0, 255, 0.8);
+    font-weight: bold;
+    text-shadow: 0 0 5px #FFAA00;
   }
 
-  .vaporwave-ticket-amount {
+  .amber-ticket-amount {
     font-size: 0.9rem;
-    color: #00FFFF;
     margin-top: 5px;
+    opacity: 0.8;
   }
 
-  .vaporwave-text {
-    color: #00FFFF;
+  .amber-text {
+    font-size: 1rem;
     line-height: 1.8;
     margin: 15px 0;
-    text-shadow: 0 0 5px rgba(0, 255, 255, 0.5);
+    letter-spacing: 1px;
   }
 
-  .vaporwave-status-buyin {
-    color: #00FF00;
-    text-shadow: 0 0 20px rgba(0, 255, 0, 0.8);
+  .amber-text strong {
+    font-weight: bold;
+    text-shadow: 0 0 5px #FFAA00;
   }
 
-  .vaporwave-status-farming {
-    color: #FFD700;
-    text-shadow: 0 0 20px rgba(255, 215, 0, 0.8);
-  }
-
-  .vaporwave-status-ended {
-    color: #FF1493;
-    text-shadow: 0 0 20px rgba(255, 20, 147, 0.8);
-  }
-
-  .vaporwave-winner-box {
-    background: rgba(255, 0, 255, 0.2);
-    border: 3px solid #FF00FF;
-    border-radius: 15px;
+  .amber-winner-box {
+    border: 3px solid #FFD700;
     padding: 30px;
     margin-top: 20px;
     text-align: center;
-    animation: glow-pulse 2s ease-in-out infinite;
+    background: rgba(255, 215, 0, 0.1);
+    box-shadow: 0 0 40px rgba(255, 215, 0, 0.5);
+    position: relative;
   }
 
-  .vaporwave-winner-text {
-    font-size: 3rem;
-    font-weight: 900;
-    background: linear-gradient(90deg, #FF00FF, #FFD700, #00FFFF, #FF00FF);
-    background-size: 200% auto;
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    animation: gradient-shift 2s linear infinite;
+  .amber-winner-box::before {
+    content: "★ WINNER ★";
+    position: absolute;
+    top: -12px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #0A0500;
+    padding: 0 15px;
+    font-size: 0.9rem;
+    text-shadow: 0 0 10px #FFD700;
+  }
+
+  .amber-winner-number {
+    font-size: 4rem;
+    font-weight: bold;
+    color: #FFD700;
+    margin: 20px 0;
+    text-shadow: 0 0 20px #FFD700, 0 0 40px #FFD700;
+  }
+
+  .amber-cursor {
+    animation: blink 1s infinite;
+  }
+
+  .amber-prompt {
+    opacity: 0.6;
+    margin-right: 10px;
   }
 
   @media (max-width: 768px) {
-    .vaporwave-title {
-      font-size: 2.5rem;
+    .amber-title {
+      font-size: 1.8rem;
     }
 
-    .vaporwave-grid {
+    .amber-grid {
       grid-template-columns: 1fr;
     }
 
-    .vaporwave-winner-text {
-      font-size: 2rem;
+    .amber-winner-number {
+      font-size: 2.5rem;
+    }
+
+    .amber-header::before,
+    .amber-header::after {
+      font-size: 0.5rem;
+    }
+
+    .amber-wallet-bar {
+      flex-direction: column;
+      gap: 10px;
     }
   }
 `;
@@ -384,6 +446,7 @@ export const Lottery = () => {
   const { address, signTransaction } = useWallet();
   const { isFunded } = useWalletBalance();
   const { addNotification } = useNotification();
+  const navigate = useNavigate();
 
   // Create a lottery client with the user's wallet
   const lottery = useMemo(() => {
@@ -607,11 +670,11 @@ export const Lottery = () => {
   const getStatusClass = () => {
     switch (lotteryState?.status) {
       case LotteryStatus.BuyIn:
-        return "vaporwave-status-buyin";
+        return "amber-status-buyin";
       case LotteryStatus.YieldFarming:
-        return "vaporwave-status-farming";
+        return "amber-status-farming";
       case LotteryStatus.Ended:
-        return "vaporwave-status-ended";
+        return "amber-status-ended";
       default:
         return "";
     }
@@ -625,22 +688,33 @@ export const Lottery = () => {
 
   if (!address) {
     return (
-      <div className="vaporwave-container">
-        <style>{vaporwaveStyles}</style>
-        <div className="vaporwave-content">
-          <div className="vaporwave-header">
-            <div className="vaporwave-title">NO LOSS LOTTERY</div>
-            <div className="vaporwave-subtitle">◈ CONNECT WALLET ◈</div>
-          </div>
-          <div className="vaporwave-card">
-            <div
-              className="vaporwave-text"
-              style={{ textAlign: "center", fontSize: "1.2rem" }}
+      <div className="amber-container">
+        <style>{amberStyles}</style>
+        <div className="amber-header">
+          <div className="amber-title">NO LOSS LOTTERY</div>
+          <div className="amber-subtitle">SYSTEM v1.0</div>
+        </div>
+        <div className="amber-content">
+          <div className="amber-wallet-bar">
+            <WalletButton />
+            <NetworkPill />
+            <button
+              type="button"
+              className="amber-debug-button"
+              onClick={() => void navigate("/debug")}
             >
-              ⟐ WALLET CONNECTION REQUIRED ⟐
+              &gt; Debug
+            </button>
+          </div>
+          <div className="amber-section">
+            <div className="amber-label">SYSTEM STATUS</div>
+            <div className="amber-text">
+              <span className="amber-prompt">&gt;</span>
+              WALLET CONNECTION REQUIRED
               <br />
               <br />
-              Connect your wallet to access the lottery
+              Connect your wallet to participate in the lottery
+              <span className="amber-cursor">_</span>
             </div>
           </div>
         </div>
@@ -650,22 +724,34 @@ export const Lottery = () => {
 
   if (!isFunded) {
     return (
-      <div className="vaporwave-container">
-        <style>{vaporwaveStyles}</style>
-        <div className="vaporwave-content">
-          <div className="vaporwave-header">
-            <div className="vaporwave-title">NO LOSS LOTTERY</div>
-            <div className="vaporwave-subtitle">◈ INSUFFICIENT FUNDS ◈</div>
-          </div>
-          <div className="vaporwave-card">
-            <div
-              className="vaporwave-text"
-              style={{ textAlign: "center", fontSize: "1.2rem" }}
+      <div className="amber-container">
+        <style>{amberStyles}</style>
+        <div className="amber-header">
+          <div className="amber-title">NO LOSS LOTTERY</div>
+          <div className="amber-subtitle">SYSTEM v1.0</div>
+        </div>
+        <div className="amber-content">
+          <div className="amber-wallet-bar">
+            <WalletButton />
+            {stellarNetwork !== "PUBLIC" && <FundAccountButton />}
+            <NetworkPill />
+            <button
+              type="button"
+              className="amber-debug-button"
+              onClick={() => void navigate("/debug")}
             >
-              ⟐ PLEASE FUND YOUR ACCOUNT ⟐
+              &gt; Debug
+            </button>
+          </div>
+          <div className="amber-section">
+            <div className="amber-label">INSUFFICIENT FUNDS</div>
+            <div className="amber-text">
+              <span className="amber-prompt">&gt;</span>
+              PLEASE FUND YOUR ACCOUNT
               <br />
               <br />
-              {address.substring(0, 12)}...
+              Wallet: {address.substring(0, 12)}...
+              <span className="amber-cursor">_</span>
             </div>
           </div>
         </div>
@@ -675,19 +761,31 @@ export const Lottery = () => {
 
   if (isLoading || !lotteryState) {
     return (
-      <div className="vaporwave-container">
-        <style>{vaporwaveStyles}</style>
-        <div className="vaporwave-content">
-          <div className="vaporwave-header">
-            <div className="vaporwave-title">NO LOSS LOTTERY</div>
-            <div className="vaporwave-subtitle">◈ LOADING ◈</div>
-          </div>
-          <div className="vaporwave-card">
-            <div
-              className="vaporwave-text"
-              style={{ textAlign: "center", fontSize: "1.2rem" }}
+      <div className="amber-container">
+        <style>{amberStyles}</style>
+        <div className="amber-header">
+          <div className="amber-title">NO LOSS LOTTERY</div>
+          <div className="amber-subtitle">SYSTEM v1.0</div>
+        </div>
+        <div className="amber-content">
+          <div className="amber-wallet-bar">
+            <WalletButton />
+            {stellarNetwork !== "PUBLIC" && <FundAccountButton />}
+            <NetworkPill />
+            <button
+              type="button"
+              className="amber-debug-button"
+              onClick={() => void navigate("/debug")}
             >
-              ⟐ CONNECTING TO BLOCKCHAIN ⟐
+              &gt; Debug
+            </button>
+          </div>
+          <div className="amber-section">
+            <div className="amber-label">INITIALIZING</div>
+            <div className="amber-text">
+              <span className="amber-prompt">&gt;</span>
+              CONNECTING TO BLOCKCHAIN
+              <span className="amber-cursor">_</span>
             </div>
           </div>
         </div>
@@ -696,130 +794,149 @@ export const Lottery = () => {
   }
 
   return (
-    <div className="vaporwave-container">
-      <style>{vaporwaveStyles}</style>
-      <div className="vaporwave-content">
-        {/* Header */}
-        <div className="vaporwave-header">
-          <div className="vaporwave-title">NO LOSS LOTTERY</div>
-          <div className="vaporwave-subtitle">◈ VAPORWAVE PROTOCOL V1.0 ◈</div>
+    <div className="amber-container">
+      <style>{amberStyles}</style>
+
+      {/* Header */}
+      <div className="amber-header">
+        <div className="amber-title">NO LOSS LOTTERY</div>
+        <div className="amber-subtitle">SYSTEM v1.0</div>
+      </div>
+
+      <div className="amber-content">
+        {/* Wallet Bar */}
+        <div className="amber-wallet-bar">
+          <WalletButton />
+          {stellarNetwork !== "PUBLIC" && <FundAccountButton />}
+          <NetworkPill />
+          <button
+            type="button"
+            className="amber-debug-button"
+            onClick={() => void navigate("/debug")}
+          >
+            &gt; Debug
+          </button>
         </div>
 
-        {/* Status Card */}
-        <div className="vaporwave-card">
-          <div className="vaporwave-label">◈ CURRENT STATUS ◈</div>
-          <div className={`vaporwave-value ${getStatusClass()}`}>
+        {/* Status Section */}
+        <div className="amber-section">
+          <div className="amber-label">CURRENT STATUS</div>
+          <div className={`amber-value ${getStatusClass()}`}>
             {lotteryState.status}
           </div>
         </div>
 
         {/* Stats Grid */}
-        <div className="vaporwave-grid">
-          <div className="vaporwave-stat">
-            <div className="vaporwave-stat-label">PARTICIPANTS</div>
-            <div className="vaporwave-stat-value">
+        <div className="amber-grid">
+          <div className="amber-stat">
+            <div className="amber-stat-label">PARTICIPANTS</div>
+            <div className="amber-stat-value">
               {lotteryState.no_participants}
             </div>
           </div>
-          <div className="vaporwave-stat">
-            <div className="vaporwave-stat-label">TOTAL YIELD</div>
-            <div className="vaporwave-stat-value">
-              {(Number(lotteryState.amount_of_yield) / 10000000).toFixed(4)}
+          <div className="amber-stat">
+            <div className="amber-stat-label">TOTAL YIELD</div>
+            <div className="amber-stat-value">
+              {(Number(lotteryState.amount_of_yield) / 10000000).toFixed(2)}
             </div>
           </div>
-          <div className="vaporwave-stat">
-            <div className="vaporwave-stat-label">TICKET COST</div>
-            <div className="vaporwave-stat-value">{ticketAmountXLM} XLM</div>
+          <div className="amber-stat">
+            <div className="amber-stat-label">TICKET COST</div>
+            <div className="amber-stat-value">{ticketAmountXLM}</div>
           </div>
         </div>
 
         {/* Admin Controls */}
         {isAdmin && (
-          <div className="vaporwave-card">
-            <div className="vaporwave-label">◈ ADMIN CONTROLS ◈</div>
-            <div className="vaporwave-grid">
+          <div className="amber-section">
+            <div className="amber-label">ADMIN CONTROLS</div>
+            <div className="amber-grid">
               <button
                 type="button"
-                className={`vaporwave-button ${lotteryState.status === LotteryStatus.BuyIn ? "vaporwave-button-active" : ""}`}
+                className={`amber-button ${lotteryState.status === LotteryStatus.BuyIn ? "amber-button-active" : ""}`}
                 onClick={() => void changeStatus(LotteryStatus.BuyIn)}
                 disabled={isSubmitting}
               >
-                BUY IN
+                Buy In
               </button>
               <button
                 type="button"
-                className={`vaporwave-button ${lotteryState.status === LotteryStatus.YieldFarming ? "vaporwave-button-active" : ""}`}
+                className={`amber-button ${lotteryState.status === LotteryStatus.YieldFarming ? "amber-button-active" : ""}`}
                 onClick={() => void changeStatus(LotteryStatus.YieldFarming)}
                 disabled={isSubmitting}
               >
-                FARMING
+                Farming
               </button>
               <button
                 type="button"
-                className={`vaporwave-button ${lotteryState.status === LotteryStatus.Ended ? "vaporwave-button-active" : ""}`}
+                className={`amber-button ${lotteryState.status === LotteryStatus.Ended ? "amber-button-active" : ""}`}
                 onClick={() => void changeStatus(LotteryStatus.Ended)}
                 disabled={isSubmitting}
               >
-                END
+                End
               </button>
             </div>
           </div>
         )}
 
         {/* Buy Ticket */}
-        <div className="vaporwave-card">
-          <div className="vaporwave-label">◈ PURCHASE TICKET ◈</div>
-          <div className="vaporwave-text">
-            ⟐ Submit {ticketAmountXLM} XLM to enter the lottery pool
+        <div className="amber-section">
+          <div className="amber-label">PURCHASE TICKET</div>
+          <div className="amber-text">
+            <span className="amber-prompt">&gt;</span>
+            <strong>
+              Submit {ticketAmountXLM} XLM to enter the lottery pool.
+            </strong>
             <br />
-            ⟐ Your funds will be returned regardless of outcome
-            <br />⟐ One winner receives all yield
+            <span className="amber-prompt">&gt;</span>
+            Your funds will be returned regardless of outcome.
+            <br />
+            <span className="amber-prompt">&gt;</span>
+            One winner receives all accumulated yield.
           </div>
           <button
             type="button"
-            className="vaporwave-button vaporwave-button-cyan"
+            className="amber-button"
             onClick={() => void buyTicket()}
             disabled={isSubmitting}
           >
-            {isSubmitting ? "◈ PROCESSING ◈" : "◈ BUY TICKET ◈"}
+            {isSubmitting ? "Processing" : "Buy Ticket"}
           </button>
         </div>
 
         {/* My Tickets */}
         {myTickets.length > 0 && (
-          <div className="vaporwave-card">
-            <div className="vaporwave-label">
-              ◈ YOUR TICKETS ({myTickets.length}) ◈
-            </div>
+          <div className="amber-section">
+            <div className="amber-label">YOUR TICKETS ({myTickets.length})</div>
             {myTickets.map((ticket) => (
               <div
                 key={ticket.id}
                 className={
                   ticket.won
-                    ? "vaporwave-ticket vaporwave-ticket-winner"
-                    : "vaporwave-ticket"
+                    ? "amber-ticket amber-ticket-winner"
+                    : "amber-ticket"
                 }
               >
                 <div>
-                  <div className="vaporwave-ticket-id">
-                    ⟐ TICKET #{ticket.id} {ticket.won && "★ WINNER ★"}
+                  <div className="amber-ticket-id">
+                    TICKET #{ticket.id} {ticket.won && "★ WINNER"}
                   </div>
-                  <div className="vaporwave-ticket-amount">
+                  <div className="amber-ticket-amount">
                     {(Number(ticket.amount) / 10000000).toFixed(7)} XLM
                   </div>
                 </div>
                 <button
                   type="button"
-                  className="vaporwave-button"
+                  className="amber-button"
                   onClick={() => void redeemTicket(ticket)}
                   disabled={isSubmitting}
                   style={{
                     width: "auto",
-                    padding: "12px 30px",
+                    padding: "15px 30px",
                     fontSize: "0.9rem",
                   }}
                 >
-                  REDEEM
+                  Redeem
                 </button>
               </div>
             ))}
@@ -828,44 +945,52 @@ export const Lottery = () => {
 
         {/* Raffle */}
         {lotteryState.status === LotteryStatus.Ended && isAdmin && (
-          <div className="vaporwave-card">
-            <div className="vaporwave-label">◈ EXECUTE RAFFLE ◈</div>
-            <div className="vaporwave-text">
-              ⟐ Lottery phase complete
-              <br />⟐ Execute random winner selection protocol
+          <div className="amber-section">
+            <div className="amber-label">EXECUTE WINNER SELECTION</div>
+            <div className="amber-text">
+              <span className="amber-prompt">&gt;</span>
+              The lottery phase has concluded.
+              <br />
+              <span className="amber-prompt">&gt;</span>
+              Execute the random winner selection protocol.
             </div>
             <button
               type="button"
-              className="vaporwave-button"
+              className="amber-button"
               onClick={() => void runRaffle()}
               disabled={isSubmitting}
             >
-              {isSubmitting ? "◈ PROCESSING ◈" : "◈ RUN RAFFLE ◈"}
+              {isSubmitting ? "Processing" : "Run Raffle"}
             </button>
             {winningTicket && (
-              <div className="vaporwave-winner-box">
-                <div className="vaporwave-label">◈ WINNER SELECTED ◈</div>
-                <div className="vaporwave-winner-text">#{winningTicket.id}</div>
-                <div className="vaporwave-text" style={{ marginTop: "10px" }}>
-                  ⟐ REWARD: DEPOSIT + ALL YIELD ⟐
-                </div>
+              <div className="amber-winner-box">
+                <div className="amber-winner-number">#{winningTicket.id}</div>
+                <div className="amber-text">REWARD: DEPOSIT + ALL YIELD</div>
               </div>
             )}
           </div>
         )}
 
         {/* Info */}
-        <div className="vaporwave-card">
-          <div className="vaporwave-label">◈ HOW IT WORKS ◈</div>
-          <div className="vaporwave-text">
-            ⟐ [1] BUY IN PERIOD — Purchase tickets with XLM
+        <div className="amber-section">
+          <div className="amber-label">HOW THE SYSTEM WORKS</div>
+          <div className="amber-text">
+            <span className="amber-prompt">&gt;</span>
+            <strong>1. BUY IN PERIOD</strong> — Purchase tickets with XLM
             <br />
-            ⟐ [2] YIELD FARMING — Funds generate yield via DeFi
+            <span className="amber-prompt">&gt;</span>
+            <strong>2. YIELD FARMING</strong> — Funds generate yield via DeFi
+            protocols
             <br />
-            ⟐ [3] LOTTERY ENDS — Random winner selection
+            <span className="amber-prompt">&gt;</span>
+            <strong>3. LOTTERY ENDS</strong> — Random winner selection executed
             <br />
-            ⟐ [4] WINNER — Receives deposit + all yield
-            <br />⟐ [5] OTHERS — Full deposit returned (no loss)
+            <span className="amber-prompt">&gt;</span>
+            <strong>4. WINNER</strong> — Receives deposit + all generated yield
+            <br />
+            <span className="amber-prompt">&gt;</span>
+            <strong>5. PARTICIPANTS</strong> — All others receive full deposit
+            back
           </div>
         </div>
       </div>
