@@ -1,13 +1,179 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { Button, Text, Card } from "@stellar/design-system";
 import { useWallet } from "../hooks/useWallet";
 import { useWalletBalance } from "../hooks/useWalletBalance";
 import { useNotification } from "../hooks/useNotification";
-import { Box } from "./layout/Box";
 import lotteryContract from "../contracts/no_loss_lottery";
 import * as NoLossLottery from "no_loss_lottery";
 import { rpcUrl } from "../contracts/util";
 import { Address } from "@stellar/stellar-sdk";
+
+// Matrix Terminal Theme CSS
+const matrixStyles = `
+  @keyframes scanline {
+    0% { transform: translateY(-100%); }
+    100% { transform: translateY(100vh); }
+  }
+
+  @keyframes blink {
+    0%, 49% { opacity: 1; }
+    50%, 100% { opacity: 0; }
+  }
+
+  @keyframes flicker {
+    0%, 100% { opacity: 1; }
+    41.99% { opacity: 1; }
+    42% { opacity: 0.8; }
+    43% { opacity: 1; }
+    45.99% { opacity: 1; }
+    46% { opacity: 0.7; }
+    46.5% { opacity: 1; }
+  }
+
+  .matrix-container {
+    background: #000000;
+    color: #00FF00;
+    font-family: 'Courier New', 'IBM Plex Mono', 'Monaco', monospace;
+    min-height: 100vh;
+    padding: 20px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .matrix-container::before {
+    content: "";
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 3px;
+    background: linear-gradient(to bottom, rgba(0, 255, 0, 0.8) 0%, transparent 100%);
+    animation: scanline 8s linear infinite;
+    z-index: 10;
+    pointer-events: none;
+  }
+
+  .matrix-container::after {
+    content: "";
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: repeating-linear-gradient(
+      0deg,
+      rgba(0, 255, 0, 0.03) 0px,
+      transparent 1px,
+      transparent 2px,
+      rgba(0, 255, 0, 0.03) 3px
+    );
+    pointer-events: none;
+    z-index: 9;
+    animation: flicker 0.15s infinite;
+  }
+
+  .matrix-card {
+    background: rgba(0, 20, 0, 0.95) !important;
+    border: 2px solid #00FF00 !important;
+    box-shadow: 0 0 20px rgba(0, 255, 0, 0.3), inset 0 0 20px rgba(0, 255, 0, 0.05) !important;
+    border-radius: 0 !important;
+    padding: 20px !important;
+    margin-bottom: 20px;
+    position: relative;
+  }
+
+  .matrix-text {
+    color: #00FF00 !important;
+    text-shadow: 0 0 5px rgba(0, 255, 0, 0.7);
+    font-family: 'Courier New', monospace !important;
+    letter-spacing: 1px;
+  }
+
+  .matrix-text-dim {
+    color: #00AA00 !important;
+    text-shadow: 0 0 3px rgba(0, 255, 0, 0.4);
+    font-family: 'Courier New', monospace !important;
+  }
+
+  .matrix-title {
+    color: #00FF00 !important;
+    text-shadow: 0 0 10px rgba(0, 255, 0, 0.8);
+    font-family: 'Courier New', monospace !important;
+    font-weight: bold !important;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+  }
+
+  .matrix-button {
+    background: #000000 !important;
+    color: #00FF00 !important;
+    border: 2px solid #00FF00 !important;
+    font-family: 'Courier New', monospace !important;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    padding: 10px 20px !important;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 0 10px rgba(0, 255, 0, 0.3);
+  }
+
+  .matrix-button:hover:not(:disabled) {
+    background: #00FF00 !important;
+    color: #000000 !important;
+    box-shadow: 0 0 20px rgba(0, 255, 0, 0.6);
+  }
+
+  .matrix-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .matrix-button-active {
+    background: #00FF00 !important;
+    color: #000000 !important;
+    box-shadow: 0 0 20px rgba(0, 255, 0, 0.8);
+  }
+
+  .matrix-ticket {
+    background: rgba(0, 40, 0, 0.8) !important;
+    border: 1px solid #00AA00 !important;
+    padding: 15px;
+    margin-bottom: 10px;
+  }
+
+  .matrix-ticket-winner {
+    background: rgba(0, 80, 0, 0.9) !important;
+    border: 2px solid #00FF00 !important;
+    box-shadow: 0 0 15px rgba(0, 255, 0, 0.5);
+    animation: flicker 2s infinite;
+  }
+
+  .matrix-status-buyin {
+    color: #00FF00 !important;
+    text-shadow: 0 0 10px rgba(0, 255, 0, 1);
+  }
+
+  .matrix-status-farming {
+    color: #FFFF00 !important;
+    text-shadow: 0 0 10px rgba(255, 255, 0, 0.8);
+  }
+
+  .matrix-status-ended {
+    color: #FF0000 !important;
+    text-shadow: 0 0 10px rgba(255, 0, 0, 0.8);
+  }
+
+  .matrix-border-top {
+    border-top: 1px solid #00FF00;
+    margin: 15px 0;
+    opacity: 0.5;
+  }
+
+  .cursor-blink::after {
+    content: "█";
+    animation: blink 1s infinite;
+    margin-left: 2px;
+  }
+`;
 
 // Lottery status enum matching the contract
 enum LotteryStatus {
@@ -37,7 +203,7 @@ export const Lottery = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [winningTicket, setWinningTicket] = useState<Ticket | null>(null);
-  const [adminAddress, setAdminAddress] = useState<string | null>(null); // Store as string
+  const [adminAddress, setAdminAddress] = useState<string | null>(null);
 
   const { address, signTransaction } = useWallet();
   const { isFunded } = useWalletBalance();
@@ -46,10 +212,9 @@ export const Lottery = () => {
   // Create a lottery client with the user's wallet
   const lottery = useMemo(() => {
     if (!address || !signTransaction) {
-      return lotteryContract; // Use default client for read-only operations
+      return lotteryContract;
     }
 
-    // Create a new client instance with the user's public key and sign function
     return new NoLossLottery.Client({
       networkPassphrase: "Test SDF Network ; September 2015",
       contractId: lotteryContract.options.contractId,
@@ -94,11 +259,9 @@ export const Lottery = () => {
       try {
         setIsLoading(true);
 
-        // Get lottery state - use lotteryContract (default client) for read-only
         const stateResult = await lotteryContract.get_lottery_state();
         if (stateResult.result.isOk()) {
           const state = stateResult.result.unwrap();
-          // Extract status tag from enum object
           const statusTag =
             typeof state.status === "object" && state.status.tag
               ? state.status.tag
@@ -111,17 +274,12 @@ export const Lottery = () => {
           });
         }
 
-        // Get admin address - use lotteryContract (default client) for read-only
-        // get_admin returns Option<Address> directly (no Result wrapper)
         const adminTx = await lotteryContract.get_admin();
-        // Extract from simulation result
         const simulation = adminTx.simulation as
           | { result?: { retval?: unknown } }
           | undefined;
         const adminScVal = simulation?.result?.retval;
-        console.log("Admin ScVal from contract:", adminScVal);
 
-        // Convert XDR address to string
         let adminAddressStr = null;
         if (
           adminScVal &&
@@ -131,20 +289,17 @@ export const Lottery = () => {
           "_value" in adminScVal
         ) {
           try {
-            // The ScVal contains an ScAddress inside _value
             const scAddress = adminScVal._value as Parameters<
               typeof Address.fromScAddress
             >[0];
             const adminAddr = Address.fromScAddress(scAddress);
             adminAddressStr = adminAddr.toString();
-            console.log("Admin address string:", adminAddressStr);
           } catch (e) {
             console.error("Failed to convert admin address:", e);
           }
         }
         setAdminAddress(adminAddressStr);
 
-        // Load user tickets
         await loadUserTickets();
       } catch (error) {
         console.error("Error loading lottery data:", error);
@@ -157,59 +312,19 @@ export const Lottery = () => {
     void loadLotteryData();
   }, [addNotification, address, loadUserTickets]);
 
-  if (!address) {
-    return (
-      <Card>
-        <Text as="p" size="md">
-          Connect your wallet to participate in the No-Loss Lottery
-        </Text>
-      </Card>
-    );
-  }
-
-  if (!isFunded) {
-    return (
-      <Card>
-        <Text as="p" size="md">
-          Fund your account first to participate in the lottery
-        </Text>
-      </Card>
-    );
-  }
-
-  if (isLoading || !lotteryState) {
-    return (
-      <Card>
-        <Text as="p" size="md">
-          Loading lottery data...
-        </Text>
-      </Card>
-    );
-  }
-
   const buyTicket = async () => {
     if (!address) return;
 
     setIsSubmitting(true);
     try {
-      console.log("Building transaction...");
-
-      // Build the transaction
       const tx = await lottery.buy_ticket({ user: address });
-
-      console.log("Signing and sending transaction...");
-
-      // Sign and send the transaction - this will prompt wallet
       const response = await tx.signAndSend();
-
-      console.log("Transaction sent!", response);
 
       if (response.result.isErr()) {
         const error = response.result.unwrapErr();
         addNotification(`Error: ${JSON.stringify(error)}`, "error");
       } else {
         addNotification("Ticket purchased successfully!", "success");
-        // Reload tickets from contract
         await loadUserTickets();
       }
     } catch (error) {
@@ -236,7 +351,6 @@ export const Lottery = () => {
             : "Ticket redeemed successfully",
           "success",
         );
-        // Reload tickets from contract
         await loadUserTickets();
       }
     } catch (error) {
@@ -268,7 +382,6 @@ export const Lottery = () => {
         setWinningTicket(winnerTicket);
         addNotification(`Ticket #${winner.id} won the lottery!`, "success");
 
-        // Reload tickets from contract to reflect updated won status
         await loadUserTickets();
       }
     } catch (error) {
@@ -292,7 +405,6 @@ export const Lottery = () => {
 
     setIsSubmitting(true);
     try {
-      // Convert status string to enum format expected by contract
       const statusEnum = { tag: newStatus, values: undefined };
 
       const tx = await lottery.set_status({
@@ -316,289 +428,341 @@ export const Lottery = () => {
     }
   };
 
-  const getStatusColor = () => {
-    switch (lotteryState.status) {
+  const getStatusClass = () => {
+    switch (lotteryState?.status) {
       case LotteryStatus.BuyIn:
-        return "#00c853";
+        return "matrix-status-buyin";
       case LotteryStatus.YieldFarming:
-        return "#ffa726";
+        return "matrix-status-farming";
       case LotteryStatus.Ended:
-        return "#ef5350";
+        return "matrix-status-ended";
       default:
-        return "#757575";
+        return "";
     }
   };
 
-  const ticketAmountXLM = 1; // 10000000 stroops = 1 XLM
+  const ticketAmountXLM = 1;
   const isAdmin =
     address &&
     adminAddress &&
     address.toLowerCase() === adminAddress.toLowerCase();
 
-  // Debug admin check
-  console.log("Admin check:", {
-    address,
-    adminAddress,
-    isAdmin,
-  });
+  if (!address) {
+    return (
+      <div className="matrix-container">
+        <style>{matrixStyles}</style>
+        <div style={{ maxWidth: "800px", margin: "0 auto" }}>
+          <div className="matrix-card">
+            <div className="matrix-title" style={{ marginBottom: "20px" }}>
+              ╔═══════════════════════════════════╗
+              <br />
+              ║ NO-LOSS LOTTERY PROTOCOL V1.0 ║
+              <br />
+              ╚═══════════════════════════════════╝
+            </div>
+            <div className="matrix-text">
+              &gt; ACCESS DENIED
+              <br />
+              &gt; WALLET CONNECTION REQUIRED
+              <br />
+              &gt; PLEASE AUTHENTICATE TO CONTINUE
+              <span className="cursor-blink"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isFunded) {
+    return (
+      <div className="matrix-container">
+        <style>{matrixStyles}</style>
+        <div style={{ maxWidth: "800px", margin: "0 auto" }}>
+          <div className="matrix-card">
+            <div className="matrix-title" style={{ marginBottom: "20px" }}>
+              ╔═══════════════════════════════════╗
+              <br />
+              ║ NO-LOSS LOTTERY PROTOCOL V1.0 ║
+              <br />
+              ╚═══════════════════════════════════╝
+            </div>
+            <div className="matrix-text">
+              &gt; WALLET DETECTED: {address.substring(0, 12)}...
+              <br />
+              &gt; ERROR: INSUFFICIENT FUNDS
+              <br />
+              &gt; PLEASE FUND YOUR ACCOUNT TO PROCEED
+              <span className="cursor-blink"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (isLoading || !lotteryState) {
+    return (
+      <div className="matrix-container">
+        <style>{matrixStyles}</style>
+        <div style={{ maxWidth: "800px", margin: "0 auto" }}>
+          <div className="matrix-card">
+            <div className="matrix-title" style={{ marginBottom: "20px" }}>
+              ╔═══════════════════════════════════╗
+              <br />
+              ║ NO-LOSS LOTTERY PROTOCOL V1.0 ║
+              <br />
+              ╚═══════════════════════════════════╝
+            </div>
+            <div className="matrix-text">
+              &gt; CONNECTING TO BLOCKCHAIN...
+              <br />
+              &gt; DECRYPTING CONTRACT STATE...
+              <br />
+              &gt; LOADING DATA
+              <span className="cursor-blink"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <Box gap="lg" style={{ maxWidth: "800px", margin: "0 auto" }}>
-      {/* Status Card */}
-      <Card>
-        <Box gap="md">
-          <Text as="h2" size="lg">
-            No-Loss Lottery
-          </Text>
-          <Box gap="sm" direction="row" align="center">
-            <Text as="p" size="md">
-              Status:
-            </Text>
-            <Text
-              as="p"
-              size="md"
+    <div className="matrix-container">
+      <style>{matrixStyles}</style>
+      <div style={{ maxWidth: "800px", margin: "0 auto" }}>
+        {/* Header */}
+        <div className="matrix-card">
+          <div className="matrix-title" style={{ marginBottom: "20px" }}>
+            ╔═══════════════════════════════════╗
+            <br />
+            ║ NO-LOSS LOTTERY PROTOCOL V1.0 ║
+            <br />
+            ╚═══════════════════════════════════╝
+          </div>
+          <div className="matrix-text" style={{ marginBottom: "10px" }}>
+            &gt; STATUS:{" "}
+            <span className={getStatusClass()}>[{lotteryState.status}]</span>
+          </div>
+          <div className="matrix-text-dim" style={{ marginBottom: "5px" }}>
+            &gt; PARTICIPANTS: {lotteryState.no_participants}
+          </div>
+          <div className="matrix-text-dim">
+            &gt; TOTAL_YIELD:{" "}
+            {(Number(lotteryState.amount_of_yield) / 10000000).toFixed(7)} XLM
+          </div>
+          <div className="matrix-border-top"></div>
+          <div className="matrix-text-dim" style={{ fontSize: "0.85rem" }}>
+            {lotteryState.status === LotteryStatus.BuyIn &&
+              "&gt; Phase active: Ticket purchases enabled"}
+            {lotteryState.status === LotteryStatus.YieldFarming &&
+              "&gt; Yield farming in progress... please wait"}
+            {lotteryState.status === LotteryStatus.Ended &&
+              "&gt; Lottery complete. Execute raffle protocol."}
+          </div>
+        </div>
+
+        {/* Admin Controls */}
+        {isAdmin && (
+          <div
+            className="matrix-card"
+            style={{
+              borderColor: "#FFFF00",
+              boxShadow: "0 0 20px rgba(255, 255, 0, 0.3)",
+            }}
+          >
+            <div
+              className="matrix-title"
               style={{
-                color: getStatusColor(),
-                fontWeight: "bold",
-                fontSize: "1.1rem",
+                marginBottom: "15px",
+                color: "#FFFF00",
+                textShadow: "0 0 10px rgba(255, 255, 0, 0.8)",
               }}
             >
-              {lotteryState.status}
-            </Text>
-          </Box>
-          <Text as="p" size="md" style={{ fontSize: "0.9rem", color: "#666" }}>
-            {lotteryState.status === LotteryStatus.BuyIn &&
-              "Buy tickets now! Your funds will be used for yield farming."}
-            {lotteryState.status === LotteryStatus.YieldFarming &&
-              "Yield farming in progress. Tickets cannot be redeemed yet."}
-            {lotteryState.status === LotteryStatus.Ended &&
-              "Lottery ended! Raffle can be run and tickets redeemed."}
-          </Text>
-          <Box gap="xs">
-            <Text as="p" size="sm" style={{ color: "#666" }}>
-              Participants: {lotteryState.no_participants}
-            </Text>
-            <Text as="p" size="sm" style={{ color: "#666" }}>
-              Total Yield:{" "}
-              {(Number(lotteryState.amount_of_yield) / 10000000).toFixed(7)} XLM
-            </Text>
-          </Box>
-        </Box>
-      </Card>
+              [ADMIN_ACCESS_GRANTED]
+            </div>
+            <div
+              className="matrix-text"
+              style={{ marginBottom: "15px", color: "#FFFF00" }}
+            >
+              &gt; CHANGE_LOTTERY_STATUS:
+            </div>
+            <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+              <button
+                type="button"
+                className={`matrix-button ${lotteryState.status === LotteryStatus.BuyIn ? "matrix-button-active" : ""}`}
+                onClick={() => void changeStatus(LotteryStatus.BuyIn)}
+                disabled={isSubmitting}
+              >
+                [BUY_IN]
+              </button>
+              <button
+                type="button"
+                className={`matrix-button ${lotteryState.status === LotteryStatus.YieldFarming ? "matrix-button-active" : ""}`}
+                onClick={() => void changeStatus(LotteryStatus.YieldFarming)}
+                disabled={isSubmitting}
+              >
+                [FARMING]
+              </button>
+              <button
+                type="button"
+                className={`matrix-button ${lotteryState.status === LotteryStatus.Ended ? "matrix-button-active" : ""}`}
+                onClick={() => void changeStatus(LotteryStatus.Ended)}
+                disabled={isSubmitting}
+              >
+                [END]
+              </button>
+            </div>
+          </div>
+        )}
 
-      {/* Admin Controls Card - Separate and prominent */}
-      {isAdmin && (
-        <Card
-          style={{ backgroundColor: "#f0f9ff", border: "2px solid #0ea5e9" }}
-        >
-          <Box gap="md">
-            <Box gap="xs">
-              <Text as="h3" size="md" style={{ color: "#0369a1" }}>
-                🔑 Admin Controls
-              </Text>
-              <Text as="p" size="sm" style={{ color: "#666" }}>
-                You are logged in as the admin. You can change the lottery
-                status here.
-              </Text>
-            </Box>
-
-            <Box gap="sm">
-              <Text as="p" size="sm" style={{ fontWeight: "bold" }}>
-                Change Lottery Status:
-              </Text>
-              <Box gap="sm" direction="row" wrap="wrap">
-                <Button
-                  size="md"
-                  variant={
-                    lotteryState.status === LotteryStatus.BuyIn
-                      ? "primary"
-                      : "secondary"
-                  }
-                  onClick={() => void changeStatus(LotteryStatus.BuyIn)}
-                  disabled={isSubmitting}
-                >
-                  Set Buy-In Phase
-                </Button>
-                <Button
-                  size="md"
-                  variant={
-                    lotteryState.status === LotteryStatus.YieldFarming
-                      ? "primary"
-                      : "secondary"
-                  }
-                  onClick={() => void changeStatus(LotteryStatus.YieldFarming)}
-                  disabled={isSubmitting}
-                >
-                  Set Yield Farming Phase
-                </Button>
-                <Button
-                  size="md"
-                  variant={
-                    lotteryState.status === LotteryStatus.Ended
-                      ? "primary"
-                      : "secondary"
-                  }
-                  onClick={() => void changeStatus(LotteryStatus.Ended)}
-                  disabled={isSubmitting}
-                >
-                  End Lottery
-                </Button>
-              </Box>
-            </Box>
-          </Box>
-        </Card>
-      )}
-
-      {/* Buy Ticket Card */}
-      <Card>
-        <Box gap="md">
-          <Text as="h3" size="md">
-            Buy Ticket
-          </Text>
-          <Text as="p" size="md" style={{ fontSize: "0.9rem", color: "#666" }}>
-            Purchase a lottery ticket. Your funds will be used for yield farming
-            and returned to you regardless of winning.
-          </Text>
-          <Box gap="sm" direction="row" align="end">
-            <Text as="p" size="md" style={{ fontWeight: "bold" }}>
-              Ticket Cost: {ticketAmountXLM} XLM
-            </Text>
-            <Button
-              variant="primary"
+        {/* Buy Ticket */}
+        <div className="matrix-card">
+          <div
+            className="matrix-title"
+            style={{ marginBottom: "15px", fontSize: "1.1rem" }}
+          >
+            [PURCHASE_TICKET]
+          </div>
+          <div
+            className="matrix-text-dim"
+            style={{ marginBottom: "15px", fontSize: "0.9rem" }}
+          >
+            &gt; Submit {ticketAmountXLM} XLM to enter lottery pool
+            <br />
+            &gt; Funds returned regardless of outcome
+            <br />
+            &gt; One winner receives all yield
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
+            <div className="matrix-text">&gt; COST: {ticketAmountXLM} XLM</div>
+            <button
+              type="button"
+              className="matrix-button"
               onClick={() => void buyTicket()}
               disabled={isSubmitting}
             >
-              {isSubmitting ? "Buying..." : "Buy Ticket"}
-            </Button>
-          </Box>
-        </Box>
-      </Card>
+              {isSubmitting ? "[PROCESSING...]" : "[EXECUTE]"}
+            </button>
+          </div>
+        </div>
 
-      {/* My Tickets Card */}
-      {myTickets.length > 0 && (
-        <Card>
-          <Box gap="md">
-            <Text as="h3" size="md">
-              My Tickets ({myTickets.length})
-            </Text>
-            <Box gap="sm">
-              {myTickets.map((ticket) => (
-                <Box
-                  key={ticket.id}
-                  gap="sm"
-                  direction="row"
-                  align="center"
-                  justify="space-between"
+        {/* My Tickets */}
+        {myTickets.length > 0 && (
+          <div className="matrix-card">
+            <div className="matrix-title" style={{ marginBottom: "15px" }}>
+              [YOUR_TICKETS] ({myTickets.length})
+            </div>
+            {myTickets.map((ticket) => (
+              <div
+                key={ticket.id}
+                className={
+                  ticket.won
+                    ? "matrix-ticket matrix-ticket-winner"
+                    : "matrix-ticket"
+                }
+              >
+                <div
                   style={{
-                    padding: "12px",
-                    border: ticket.won ? "2px solid #00c853" : "1px solid #ddd",
-                    borderRadius: "8px",
-                    backgroundColor: ticket.won ? "#e8f5e9" : "#fafafa",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
                   }}
                 >
-                  <Box gap="xs">
-                    <Text as="p" size="md" style={{ fontWeight: "bold" }}>
-                      Ticket #{ticket.id}
-                      {ticket.won && " 🏆 WINNER"}
-                    </Text>
-                    <Text
-                      as="p"
-                      size="sm"
-                      style={{ fontSize: "0.85rem", color: "#666" }}
+                  <div>
+                    <div className="matrix-text">
+                      &gt; TICKET_ID: #{ticket.id}{" "}
+                      {ticket.won && "[***WINNER***]"}
+                    </div>
+                    <div
+                      className="matrix-text-dim"
+                      style={{ fontSize: "0.85rem" }}
                     >
-                      Amount: {(Number(ticket.amount) / 10000000).toFixed(7)}{" "}
-                      XLM
-                    </Text>
-                  </Box>
-                  <Button
-                    size="sm"
-                    variant={ticket.won ? "primary" : "secondary"}
+                      &gt; AMOUNT:{" "}
+                      {(Number(ticket.amount) / 10000000).toFixed(7)} XLM
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="matrix-button"
                     onClick={() => void redeemTicket(ticket)}
                     disabled={isSubmitting}
+                    style={{ fontSize: "0.85rem", padding: "8px 15px" }}
                   >
-                    Redeem
-                  </Button>
-                </Box>
-              ))}
-            </Box>
-          </Box>
-        </Card>
-      )}
+                    [REDEEM]
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
 
-      {/* Raffle Card */}
-      {lotteryState.status === LotteryStatus.Ended && isAdmin && (
-        <Card>
-          <Box gap="md">
-            <Text as="h3" size="md">
-              Run Raffle
-            </Text>
-            <Text
-              as="p"
-              size="md"
-              style={{ fontSize: "0.9rem", color: "#666" }}
-            >
-              The lottery has ended. Run the raffle to select a winner.
-            </Text>
-            <Button
-              variant="primary"
+        {/* Raffle */}
+        {lotteryState.status === LotteryStatus.Ended && isAdmin && (
+          <div className="matrix-card">
+            <div className="matrix-title" style={{ marginBottom: "15px" }}>
+              [EXECUTE_RAFFLE]
+            </div>
+            <div className="matrix-text-dim" style={{ marginBottom: "15px" }}>
+              &gt; Lottery phase complete
+              <br />
+              &gt; Execute random winner selection protocol
+            </div>
+            <button
+              type="button"
+              className="matrix-button"
               onClick={() => void runRaffle()}
               disabled={isSubmitting}
             >
-              {isSubmitting ? "Running..." : "Run Raffle"}
-            </Button>
+              {isSubmitting ? "[PROCESSING...]" : "[RUN_RAFFLE]"}
+            </button>
             {winningTicket && (
-              <Box
+              <div
                 style={{
-                  padding: "16px",
-                  backgroundColor: "#e8f5e9",
-                  borderRadius: "8px",
-                  border: "2px solid #00c853",
+                  marginTop: "20px",
+                  padding: "15px",
+                  border: "2px solid #00FF00",
+                  background: "rgba(0, 80, 0, 0.5)",
                 }}
               >
-                <Text
-                  as="p"
-                  size="md"
-                  style={{ fontWeight: "bold", color: "#00c853" }}
+                <div
+                  className="matrix-text"
+                  style={{ fontSize: "1.1rem", marginBottom: "10px" }}
                 >
-                  Winning Ticket: #{winningTicket.id}
-                </Text>
-                <Text as="p" size="md" style={{ fontSize: "0.9rem" }}>
-                  Winner gets their deposit back + all the yield!
-                </Text>
-              </Box>
+                  *** WINNER_SELECTED ***
+                </div>
+                <div className="matrix-text">
+                  &gt; TICKET_ID: #{winningTicket.id}
+                  <br />
+                  &gt; REWARD: DEPOSIT + YIELD
+                </div>
+              </div>
             )}
-          </Box>
-        </Card>
-      )}
+          </div>
+        )}
 
-      {/* Info Card */}
-      <Card>
-        <Box gap="sm">
-          <Text as="h3" size="md">
-            How It Works
-          </Text>
-          <Box gap="xs">
-            <Text as="p" size="md" style={{ fontSize: "0.9rem" }}>
-              1. <strong>Buy-In Period:</strong> Purchase lottery tickets with
-              XLM
-            </Text>
-            <Text as="p" size="md" style={{ fontSize: "0.9rem" }}>
-              2. <strong>Yield Farming:</strong> Your XLM is used to generate
-              yield
-            </Text>
-            <Text as="p" size="md" style={{ fontSize: "0.9rem" }}>
-              3. <strong>Lottery Ends:</strong> A raffle selects the winner
-            </Text>
-            <Text as="p" size="md" style={{ fontSize: "0.9rem" }}>
-              4. <strong>Winner:</strong> Gets their deposit + all generated
-              yield
-            </Text>
-            <Text as="p" size="md" style={{ fontSize: "0.9rem" }}>
-              5. <strong>Losers:</strong> Get their full deposit back (no loss!)
-            </Text>
-          </Box>
-        </Box>
-      </Card>
-    </Box>
+        {/* Info */}
+        <div className="matrix-card">
+          <div className="matrix-title" style={{ marginBottom: "15px" }}>
+            [PROTOCOL_INFO]
+          </div>
+          <div
+            className="matrix-text-dim"
+            style={{ fontSize: "0.9rem", lineHeight: "1.8" }}
+          >
+            &gt; [1] BUY_IN_PERIOD: Purchase tickets with XLM
+            <br />
+            &gt; [2] YIELD_FARMING: Funds generate yield via DeFi
+            <br />
+            &gt; [3] LOTTERY_ENDS: Random winner selection
+            <br />
+            &gt; [4] WINNER: Receives deposit + all yield
+            <br />
+            &gt; [5] OTHERS: Full deposit returned (no loss)
+          </div>
+        </div>
+      </div>
+    </div>
   );
 };
