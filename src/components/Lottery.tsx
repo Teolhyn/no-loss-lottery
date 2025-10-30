@@ -675,6 +675,100 @@ export const Lottery = () => {
     }
   };
 
+  const blendIt = async () => {
+    if (!address || !adminAddress) {
+      addNotification("Admin address not found", "error");
+      return;
+    }
+
+    if (String(address).toLowerCase() !== String(adminAddress).toLowerCase()) {
+      addNotification("Only admin can call blend_it", "error");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const tx = await lottery.blend_it();
+      const response = await tx.signAndSend();
+
+      if (response.result.isErr()) {
+        const error = response.result.unwrapErr();
+        addNotification(`Error: ${JSON.stringify(error)}`, "error");
+      } else {
+        addNotification("Funds sent to Blend successfully!", "success");
+        // Reload lottery data
+        const stateResult = await lotteryContract.get_lottery_state();
+        if (stateResult.result.isOk()) {
+          const state = stateResult.result.unwrap();
+          const statusTag =
+            typeof state.status === "object" && state.status.tag
+              ? state.status.tag
+              : state.status;
+          setLotteryState({
+            status: statusTag as LotteryStatus,
+            no_participants: state.no_participants,
+            amount_of_yield: BigInt(state.amount_of_yield.toString()),
+            token: state.token,
+          });
+        }
+      }
+    } catch (error) {
+      addNotification("Failed to send funds to Blend", "error");
+      console.error(error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const withdrawFromBlend = async () => {
+    if (!address || !adminAddress) {
+      addNotification("Admin address not found", "error");
+      return;
+    }
+
+    if (String(address).toLowerCase() !== String(adminAddress).toLowerCase()) {
+      addNotification("Only admin can withdraw from Blend", "error");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const tx = await lottery.withdraw_from_blend();
+      const response = await tx.signAndSend();
+
+      if (response.result.isErr()) {
+        const error = response.result.unwrapErr();
+        addNotification(`Error: ${JSON.stringify(error)}`, "error");
+      } else {
+        const yieldAmount = response.result.unwrap();
+        addNotification(
+          `Withdrew from Blend! Yield: ${Number(yieldAmount) / 10000000} XLM`,
+          "success",
+        );
+        // Reload lottery data
+        const stateResult = await lotteryContract.get_lottery_state();
+        if (stateResult.result.isOk()) {
+          const state = stateResult.result.unwrap();
+          const statusTag =
+            typeof state.status === "object" && state.status.tag
+              ? state.status.tag
+              : state.status;
+          setLotteryState({
+            status: statusTag as LotteryStatus,
+            no_participants: state.no_participants,
+            amount_of_yield: BigInt(state.amount_of_yield.toString()),
+            token: state.token,
+          });
+        }
+      }
+    } catch (error) {
+      addNotification("Failed to withdraw from Blend", "error");
+      console.error(error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const getStatusClass = () => {
     switch (lotteryState?.status) {
       case LotteryStatus.BuyIn:
@@ -857,7 +951,7 @@ export const Lottery = () => {
         {/* Admin Controls */}
         {isAdmin && (
           <div className="amber-section">
-            <div className="amber-label">ADMIN CONTROLS</div>
+            <div className="amber-label">ADMIN CONTROLS - STATUS</div>
             <div className="amber-grid">
               <button
                 type="button"
@@ -882,6 +976,35 @@ export const Lottery = () => {
                 disabled={isSubmitting}
               >
                 End
+              </button>
+            </div>
+
+            <div className="amber-label" style={{ marginTop: "20px" }}>
+              ADMIN CONTROLS - BLEND
+            </div>
+            <div className="amber-grid">
+              <button
+                type="button"
+                className="amber-button"
+                onClick={() => void blendIt()}
+                disabled={
+                  isSubmitting ||
+                  lotteryState.status !== LotteryStatus.YieldFarming
+                }
+                title="Send funds to Blend pool for yield farming"
+              >
+                Send to Blend
+              </button>
+              <button
+                type="button"
+                className="amber-button"
+                onClick={() => void withdrawFromBlend()}
+                disabled={
+                  isSubmitting || lotteryState.status !== LotteryStatus.Ended
+                }
+                title="Withdraw funds from Blend pool"
+              >
+                Withdraw from Blend
               </button>
             </div>
           </div>
