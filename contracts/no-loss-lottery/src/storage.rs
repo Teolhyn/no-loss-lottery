@@ -1,7 +1,7 @@
 use crate::error::LotteryError;
-use soroban_sdk::{contracttype, Address, Env};
+use soroban_sdk::{contracttype, Address, Env, Vec};
 
-#[derive(PartialEq, Eq, Debug)]
+#[derive(PartialEq, Eq, Debug, Clone)]
 #[contracttype]
 pub enum LotteryStatus {
     BuyIn,
@@ -17,6 +17,7 @@ pub struct LotteryState {
     pub token: Address,
 }
 
+#[derive(Debug, PartialEq, Eq, Clone)]
 #[contracttype]
 pub struct Ticket {
     pub id: u32,
@@ -39,6 +40,7 @@ enum Key {
     UserTickets(Address),
     SentBalance,
     Blender,
+    Ids,
 }
 
 pub fn write_admin(e: &Env, admin: &Address) {
@@ -112,6 +114,7 @@ pub fn write_ticket(e: &Env, ticket: &Ticket) {
     e.storage()
         .persistent()
         .set(&Key::Ticket(ticket.id), ticket);
+    //TODO: Add id to Key::Ids.
 }
 
 pub fn get_and_increment_ticket_counter(e: &Env) -> u32 {
@@ -127,6 +130,7 @@ pub fn get_and_increment_ticket_counter(e: &Env) -> u32 {
 
 pub fn remove_ticket(e: &Env, ticket: Ticket) {
     e.storage().temporary().remove(&Key::Ticket(ticket.id));
+    //TODO: Remove id from Key::Ids.
 }
 
 pub fn add_ticket_to_user(e: &Env, user: &Address, ticket_id: u32) {
@@ -189,4 +193,11 @@ pub fn read_blend_address(e: &Env) -> Result<Address, LotteryError> {
         .instance()
         .get(&Key::Blender)
         .ok_or(LotteryError::BlenderNotFound)
+}
+
+pub fn read_ids(e: &Env) -> Result<Vec<u32>, LotteryError> {
+    e.storage()
+        .persistent()
+        .get(&Key::Ids)
+        .ok_or(LotteryError::IdsNotFound)
 }

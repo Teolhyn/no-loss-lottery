@@ -1,5 +1,6 @@
 use soroban_sdk::contracterror;
 
+#[derive(Debug)]
 #[contracterror]
 #[repr(u32)]
 pub enum LotteryError {
@@ -15,4 +16,5 @@ pub enum LotteryError {
     BlenderNotFound = 10,
     AdminNotFound = 11,
     BlendPositionNotFound = 12,
+    IdsNotFound = 13,
 }

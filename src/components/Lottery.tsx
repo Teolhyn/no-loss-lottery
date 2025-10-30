@@ -944,7 +944,7 @@ export const Lottery = () => {
           </div>
           <div className="amber-stat">
             <div className="amber-stat-label">TICKET COST</div>
-            <div className="amber-stat-value">{ticketAmountXLM}</div>
+            <div className="amber-stat-value">${ticketAmountXLM}</div>
           </div>
         </div>
 
@@ -1016,7 +1016,7 @@ export const Lottery = () => {
           <div className="amber-text">
             <span className="amber-prompt">&gt;</span>
             <strong>
-              Submit {ticketAmountXLM} XLM to enter the lottery pool.
+              Submit {ticketAmountXLM} USDC to enter the lottery pool.
             </strong>
             <br />
             <span className="amber-prompt">&gt;</span>
@@ -1053,7 +1053,7 @@ export const Lottery = () => {
                     TICKET #{ticket.id} {ticket.won && "★ WINNER"}
                   </div>
                   <div className="amber-ticket-amount">
-                    {(Number(ticket.amount) / 10000000).toFixed(7)} XLM
+                    ${(Number(ticket.amount) / 10000000).toFixed(2)} USDC
                   </div>
                 </div>
                 <button

@@ -1,4 +1,8 @@
-use soroban_sdk::{contract, contractimpl, token, vec, Address, Env};
+use soroban_sdk::auth::{ContractContext, SubContractInvocation};
+use soroban_sdk::{
+    auth::InvokerContractAuthEntry, contract, contractimpl, token, vec, Address, Env,
+};
+use soroban_sdk::{symbol_short, IntoVal, Symbol};
 
 use crate::error::LotteryError;
 use crate::storage;
@@ -124,10 +128,11 @@ impl NoLossLottery {
             return Err(LotteryError::WrongStatus);
         }
 
-        //TODO: random raffle
-        let winner_id = 1;
+        let active_ids = storage::read_ids(&e)?;
+        let last_index = (active_ids.len() - 1) as u64;
+        let winner_id: u64 = e.prng().gen_range(0..last_index);
 
-        let mut winner_ticket = storage::read_ticket(&e, winner_id)?;
+        let mut winner_ticket = storage::read_ticket(&e, winner_id as u32)?;
         winner_ticket.won = true;
         storage::write_ticket(&e, &winner_ticket);
 
@@ -143,6 +148,19 @@ impl NoLossLottery {
 
         if !storage::is_admin(&e, &admin) {
             return Err(LotteryError::NotAuthorized);
+        }
+
+        let current_status = storage::read_lottery_status(&e)?;
+
+        let is_valid_transition = match (current_status, new_status.clone()) {
+            (LotteryStatus::BuyIn, LotteryStatus::YieldFarming) => true,
+            (LotteryStatus::YieldFarming, LotteryStatus::Ended) => true,
+            (LotteryStatus::Ended, LotteryStatus::BuyIn) => true,
+            _ => false,
+        };
+
+        if !is_valid_transition {
+            return Err(LotteryError::WrongStatus);
         }
 
         storage::write_lottery_status(&e, &new_status);
@@ -202,9 +220,28 @@ impl NoLossLottery {
             request_type: 0,
         };
 
+        // let contract_context = ContractContext {
+        //     contract: blend_address,
+        //     fn_name: symbol_short!("submit"),
+        //     args: vec![
+        //         &e,
+        //         e.current_contract_address().into_val(&e),
+        //         e.current_contract_address().into_val(&e),
+        //         vec![&e, deposit_request].into_val(&e),
+        //     ],
+        // };
+        // let sub_contract_invocation = SubContractInvocation {context: contract_context, sub_invocations:};
+        // let auth_entries = vec![&e, InvokerContractAuthEntry::Contract()];
+        // e.authorize_as_current_contract(auth_entries);
+        //
         token_client.transfer(&e.current_contract_address(), &admin, &contract_balance);
 
-        blend_client.submit(&admin, &admin, &admin, &vec![&e, deposit_request]);
+        blend_client.submit(
+            &e.current_contract_address(), //admin
+            &e.current_contract_address(),
+            &e.current_contract_address(),
+            &vec![&e, deposit_request],
+        );
 
         let balance_before = storage::read_sent_balance(&e)?;
         storage::write_sent_balance(&e, &(contract_balance + balance_before));
@@ -219,7 +256,7 @@ impl NoLossLottery {
         admin.require_auth();
         let token_address = storage::read_currency(&e)?;
         let token_client = token::Client::new(&e, &token_address);
-        let contract_balance = token_client.balance(&e.current_contract_address());
+        token_client.balance(&e.current_contract_address());
 
         let blend_address = storage::read_blend_address(&e)?;
         let blend_client = blend::Client::new(&e, &blend_address);
@@ -269,5 +306,356 @@ impl NoLossLottery {
         storage::write_lottery_state(&e, &lottery_state);
 
         Ok(yield_gained)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use soroban_sdk::{
+        testutils::Address as _,
+        token::{StellarAssetClient, TokenClient},
+    };
+
+    use super::*;
+
+    mod buy_tickets {
+        use super::*;
+
+        #[test]
+        fn status_buyin() {
+            let e = Env::default();
+            e.mock_all_auths();
+            let TestEnv {
+                user,
+                xlm_address,
+                lottery_client,
+                ..
+            } = setup_test_env(&e);
+
+            let ticket = lottery_client.buy_ticket(&user.clone());
+
+            let ticket_should_be = Ticket {
+                amount: 10_000_000,
+                id: 1,
+                user: user.clone(),
+                token: xlm_address,
+                won: false,
+            };
+
+            let user_tickets = lottery_client.get_user_tickets(&user);
+
+            let user_tickets_should_be = vec![&e, ticket_should_be.clone()];
+
+            assert_eq!(user_tickets_should_be, user_tickets);
+            assert_eq!(ticket_should_be, ticket);
+        }
+
+        #[test]
+        #[should_panic(expected = "Error(Contract, #1)")]
+        fn status_yieldfarming() {
+            let e = Env::default();
+            e.mock_all_auths();
+            let TestEnv {
+                user,
+                admin,
+                lottery_client,
+                ..
+            } = setup_test_env(&e);
+
+            lottery_client.set_status(&admin, &LotteryStatus::YieldFarming);
+
+            lottery_client.buy_ticket(&user.clone());
+        }
+
+        #[test]
+        #[should_panic(expected = "Error(Contract, #1)")]
+        fn status_ended() {
+            let e = Env::default();
+            e.mock_all_auths();
+            let TestEnv {
+                user,
+                admin,
+                lottery_client,
+                ..
+            } = setup_test_env(&e);
+
+            lottery_client.set_status(&admin, &LotteryStatus::Ended);
+
+            lottery_client.buy_ticket(&user.clone());
+        }
+
+        #[test]
+        fn buy_multiple() {
+            let e = Env::default();
+            e.mock_all_auths();
+            let TestEnv {
+                user,
+                xlm_address,
+                lottery_client,
+                ..
+            } = setup_test_env(&e);
+
+            let ticket = lottery_client.buy_ticket(&user.clone());
+            let ticket2 = lottery_client.buy_ticket(&user.clone());
+
+            let ticket_should_be = Ticket {
+                amount: 10_000_000,
+                id: 1,
+                user: user.clone(),
+                token: xlm_address.clone(),
+                won: false,
+            };
+            let ticket2_should_be = Ticket {
+                amount: 10_000_000,
+                id: 2,
+                user: user.clone(),
+                token: xlm_address,
+                won: false,
+            };
+
+            let user_tickets = lottery_client.get_user_tickets(&user);
+
+            let user_tickets_should_be =
+                vec![&e, ticket_should_be.clone(), ticket2_should_be.clone()];
+
+            assert_eq!(user_tickets_should_be, user_tickets);
+            assert_eq!(ticket_should_be, ticket);
+            assert_eq!(ticket2_should_be, ticket2);
+        }
+    }
+
+    mod redeem_tickets {
+        use super::*;
+
+        #[test]
+        fn status_buyin() {
+            let e = Env::default();
+            e.mock_all_auths();
+            let TestEnv {
+                user,
+                lottery_client,
+                ..
+            } = setup_test_env(&e);
+
+            let ticket = lottery_client.buy_ticket(&user.clone());
+            lottery_client.redeem_ticket(&ticket);
+
+            let user_tickets = lottery_client.get_user_tickets(&user);
+
+            let user_tickets_should_be = vec![&e];
+
+            assert_eq!(user_tickets_should_be, user_tickets);
+            //TODO: Maybe check the Ids vec?
+        }
+
+        #[test]
+        #[should_panic(expected = "Error(Contract, #1)")]
+        fn status_yieldfarming() {
+            let e = Env::default();
+            e.mock_all_auths();
+            let TestEnv {
+                user,
+                admin,
+                lottery_client,
+                ..
+            } = setup_test_env(&e);
+
+            let ticket = lottery_client.buy_ticket(&user.clone());
+            lottery_client.set_status(&admin, &LotteryStatus::YieldFarming);
+            lottery_client.redeem_ticket(&ticket);
+        }
+
+        #[test]
+        fn status_ended() {
+            let e = Env::default();
+            e.mock_all_auths();
+            let TestEnv {
+                user,
+                admin,
+                lottery_client,
+                ..
+            } = setup_test_env(&e);
+
+            let ticket = lottery_client.buy_ticket(&user.clone());
+            lottery_client.set_status(&admin, &LotteryStatus::YieldFarming);
+            lottery_client.set_status(&admin, &LotteryStatus::Ended);
+            lottery_client.redeem_ticket(&ticket);
+
+            let user_tickets = lottery_client.get_user_tickets(&user);
+
+            let user_tickets_should_be = vec![&e];
+
+            assert_eq!(user_tickets_should_be, user_tickets);
+        }
+
+        #[test]
+        fn redeem_multiple() {
+            let e = Env::default();
+            e.mock_all_auths();
+            let TestEnv {
+                user,
+                lottery_client,
+                ..
+            } = setup_test_env(&e);
+
+            let ticket = lottery_client.buy_ticket(&user.clone());
+            let ticket2 = lottery_client.buy_ticket(&user.clone());
+
+            lottery_client.redeem_ticket(&ticket);
+            lottery_client.redeem_ticket(&ticket2);
+
+            let user_tickets = lottery_client.get_user_tickets(&user);
+
+            let user_tickets_should_be = vec![&e];
+
+            assert_eq!(user_tickets_should_be, user_tickets);
+        }
+
+        //TODO: redeem_user_won?
+    }
+
+    mod set_status {
+        use super::*;
+
+        #[test]
+        fn set_status_yieldfarming() {
+            let e = Env::default();
+            e.mock_all_auths();
+            let TestEnv {
+                lottery_client,
+                admin,
+                ..
+            } = setup_test_env(&e);
+
+            lottery_client.set_status(&admin, &LotteryStatus::YieldFarming);
+
+            let state = lottery_client.get_lottery_state();
+
+            assert_eq!(LotteryStatus::YieldFarming, state.status);
+        }
+
+        #[test]
+        fn set_status_ended() {
+            let e = Env::default();
+            e.mock_all_auths();
+            let TestEnv {
+                lottery_client,
+                admin,
+                ..
+            } = setup_test_env(&e);
+
+            lottery_client.set_status(&admin, &LotteryStatus::YieldFarming);
+            lottery_client.set_status(&admin, &LotteryStatus::Ended);
+
+            let state = lottery_client.get_lottery_state();
+
+            assert_eq!(LotteryStatus::Ended, state.status);
+        }
+
+        #[test]
+        fn set_status_buyin() {
+            let e = Env::default();
+            e.mock_all_auths();
+            let TestEnv {
+                lottery_client,
+                admin,
+                ..
+            } = setup_test_env(&e);
+            lottery_client.set_status(&admin, &LotteryStatus::YieldFarming);
+            lottery_client.set_status(&admin, &LotteryStatus::Ended);
+            lottery_client.set_status(&admin, &LotteryStatus::BuyIn);
+
+            let state = lottery_client.get_lottery_state();
+
+            assert_eq!(LotteryStatus::BuyIn, state.status);
+        }
+
+        #[test]
+        #[should_panic(expected = "Error(Contract, #1)")]
+        fn set_status_ended_after_buyin() {
+            let e = Env::default();
+            e.mock_all_auths();
+            let TestEnv {
+                lottery_client,
+                admin,
+                ..
+            } = setup_test_env(&e);
+            lottery_client.set_status(&admin, &LotteryStatus::Ended);
+        }
+
+        #[test]
+        #[should_panic(expected = "Error(Contract, #1)")]
+        fn set_status_yieldfarming_after_ended() {
+            let e = Env::default();
+            e.mock_all_auths();
+            let TestEnv {
+                lottery_client,
+                admin,
+                ..
+            } = setup_test_env(&e);
+            lottery_client.set_status(&admin, &LotteryStatus::YieldFarming);
+            lottery_client.set_status(&admin, &LotteryStatus::Ended);
+            lottery_client.set_status(&admin, &LotteryStatus::YieldFarming);
+        }
+
+        #[test]
+        #[should_panic(expected = "Error(Contract, #1)")]
+        fn set_status_buyin_after_yieldfarming() {
+            let e = Env::default();
+            e.mock_all_auths();
+            let TestEnv {
+                lottery_client,
+                admin,
+                ..
+            } = setup_test_env(&e);
+            lottery_client.set_status(&admin, &LotteryStatus::YieldFarming);
+            lottery_client.set_status(&admin, &LotteryStatus::BuyIn);
+        }
+    }
+
+    struct TestEnv<'a> {
+        admin: Address,
+        user: Address,
+        xlm_asset_client: StellarAssetClient<'a>,
+        xlm_token_client: TokenClient<'a>,
+        xlm_address: Address,
+        blend_address: Address,
+        lottery_client: NoLossLotteryClient<'a>,
+    }
+    fn setup_test_env(e: &Env) -> TestEnv<'_> {
+        let admin = Address::generate(e);
+        let user = Address::generate(e);
+
+        let xlm_address = e
+            .register_stellar_asset_contract_v2(admin.clone())
+            .address();
+        let xlm_asset_client = StellarAssetClient::new(e, &xlm_address);
+        let xlm_token_client = TokenClient::new(e, &xlm_address);
+
+        xlm_asset_client.mint(&admin, &20_000_000_i128);
+        xlm_asset_client.mint(&user, &20_000_000_i128);
+
+        let blend_address = Address::generate(e);
+
+        let lottery_address = e.register(
+            NoLossLottery,
+            (
+                admin.clone(),
+                xlm_address.clone(),
+                10_000_000_i128,
+                blend_address.clone(),
+            ),
+        );
+        let lottery_client = NoLossLotteryClient::new(e, &lottery_address);
+
+        TestEnv {
+            admin,
+            user,
+            xlm_asset_client,
+            xlm_token_client,
+            xlm_address,
+            blend_address,
+            lottery_client,
+        }
     }
 }
