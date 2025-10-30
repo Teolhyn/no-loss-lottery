@@ -2,7 +2,7 @@ use soroban_sdk::auth::{ContractContext, SubContractInvocation};
 use soroban_sdk::{
     auth::InvokerContractAuthEntry, contract, contractimpl, token, vec, Address, Env,
 };
-use soroban_sdk::{symbol_short, IntoVal, Symbol};
+use soroban_sdk::{IntoVal, Symbol};
 
 use crate::error::LotteryError;
 use crate::storage;
@@ -129,10 +129,13 @@ impl NoLossLottery {
         }
 
         let active_ids = storage::read_ids(&e)?;
-        let last_index = (active_ids.len() - 1) as u64;
-        let winner_id: u64 = e.prng().gen_range(0..last_index);
+        let winner_id_index: u64 = e.prng().gen_range(0..active_ids.len() as u64);
 
-        let mut winner_ticket = storage::read_ticket(&e, winner_id as u32)?;
+        let winner_id = active_ids
+            .get(winner_id_index as u32)
+            .ok_or(LotteryError::TicketNotFound)?;
+
+        let mut winner_ticket = storage::read_ticket(&e, winner_id)?;
         winner_ticket.won = true;
         storage::write_ticket(&e, &winner_ticket);
 
@@ -215,29 +218,34 @@ impl NoLossLottery {
         let blend_client = blend::Client::new(&e, &blend_address);
 
         let deposit_request = blend::Request {
-            address: token_address,
+            address: token_address.clone(),
             amount: contract_balance,
             request_type: 0,
         };
 
-        // let contract_context = ContractContext {
-        //     contract: blend_address,
-        //     fn_name: symbol_short!("submit"),
-        //     args: vec![
-        //         &e,
-        //         e.current_contract_address().into_val(&e),
-        //         e.current_contract_address().into_val(&e),
-        //         vec![&e, deposit_request].into_val(&e),
-        //     ],
-        // };
-        // let sub_contract_invocation = SubContractInvocation {context: contract_context, sub_invocations:};
-        // let auth_entries = vec![&e, InvokerContractAuthEntry::Contract()];
-        // e.authorize_as_current_contract(auth_entries);
-        //
-        token_client.transfer(&e.current_contract_address(), &admin, &contract_balance);
+        let token_transfer_context = ContractContext {
+            contract: token_address.clone(),
+            fn_name: Symbol::new(&e, "transfer"),
+            args: vec![
+                &e,
+                e.current_contract_address().into_val(&e),
+                blend_address.clone().into_val(&e),
+                contract_balance.into_val(&e),
+            ],
+        };
+
+        let token_transfer_invocation = SubContractInvocation {
+            context: token_transfer_context,
+            sub_invocations: vec![&e],
+        };
+
+        e.authorize_as_current_contract(vec![
+            &e,
+            InvokerContractAuthEntry::Contract(token_transfer_invocation),
+        ]);
 
         blend_client.submit(
-            &e.current_contract_address(), //admin
+            &e.current_contract_address(),
             &e.current_contract_address(),
             &e.current_contract_address(),
             &vec![&e, deposit_request],
@@ -256,7 +264,7 @@ impl NoLossLottery {
         admin.require_auth();
         let token_address = storage::read_currency(&e)?;
         let token_client = token::Client::new(&e, &token_address);
-        token_client.balance(&e.current_contract_address());
+        let contract_balance_before = token_client.balance(&e.current_contract_address());
 
         let blend_address = storage::read_blend_address(&e)?;
         let blend_client = blend::Client::new(&e, &blend_address);
@@ -273,16 +281,14 @@ impl NoLossLottery {
         // bTokens reserve_id * 2 + 1, dTokens reserve_id * 2.
         let reserve_token_id = reserve_index * 2 + 1;
 
-        let positions = blend_client.get_positions(&admin);
+        let positions = blend_client.get_positions(&e.current_contract_address());
         positions
             .supply
             .get(reserve_index)
             .ok_or(LotteryError::BlendPositionNotFound)?;
 
         let reserve_ids = vec![&e, reserve_token_id];
-        blend_client.claim(&admin, &reserve_ids, &admin);
-
-        let admin_balance_before = token_client.balance(&admin);
+        blend_client.claim(&e.current_contract_address(), &reserve_ids, &admin);
 
         let withdraw_request = blend::Request {
             address: token_address.clone(),
@@ -290,13 +296,36 @@ impl NoLossLottery {
             request_type: 1,
         };
 
-        blend_client.submit(&admin, &admin, &admin, &vec![&e, withdraw_request]);
+        let token_transfer_context = ContractContext {
+            contract: token_address.clone(),
+            fn_name: Symbol::new(&e, "transfer"),
+            args: vec![
+                &e,
+                blend_address.clone().into_val(&e),
+                e.current_contract_address().into_val(&e),
+                i128::MAX.into_val(&e),
+            ],
+        };
 
-        let admin_balance_after = token_client.balance(&admin);
+        let token_transfer_invocation = SubContractInvocation {
+            context: token_transfer_context,
+            sub_invocations: vec![&e],
+        };
 
-        let balance_from_blend = admin_balance_after - admin_balance_before;
+        e.authorize_as_current_contract(vec![
+            &e,
+            InvokerContractAuthEntry::Contract(token_transfer_invocation),
+        ]);
 
-        token_client.transfer(&admin, &e.current_contract_address(), &balance_from_blend);
+        blend_client.submit(
+            &e.current_contract_address(),
+            &e.current_contract_address(),
+            &e.current_contract_address(),
+            &vec![&e, withdraw_request],
+        );
+
+        let contract_balance_after = token_client.balance(&e.current_contract_address());
+        let balance_from_blend = contract_balance_after - contract_balance_before;
 
         let sent_to_blend = storage::read_sent_balance(&e)?;
         let yield_gained = balance_from_blend - sent_to_blend;

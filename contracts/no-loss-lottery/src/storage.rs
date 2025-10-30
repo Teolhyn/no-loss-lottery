@@ -114,7 +114,15 @@ pub fn write_ticket(e: &Env, ticket: &Ticket) {
     e.storage()
         .persistent()
         .set(&Key::Ticket(ticket.id), ticket);
-    //TODO: Add id to Key::Ids.
+
+    // Add ticket ID to active IDs list
+    let mut ids: Vec<u32> = e
+        .storage()
+        .persistent()
+        .get(&Key::Ids)
+        .unwrap_or(Vec::new(e));
+    ids.push_back(ticket.id);
+    e.storage().persistent().set(&Key::Ids, &ids);
 }
 
 pub fn get_and_increment_ticket_counter(e: &Env) -> u32 {
@@ -129,8 +137,22 @@ pub fn get_and_increment_ticket_counter(e: &Env) -> u32 {
 }
 
 pub fn remove_ticket(e: &Env, ticket: Ticket) {
-    e.storage().temporary().remove(&Key::Ticket(ticket.id));
-    //TODO: Remove id from Key::Ids.
+    e.storage().persistent().remove(&Key::Ticket(ticket.id));
+
+    // Remove ticket ID from active IDs list
+    let ids: Vec<u32> = e
+        .storage()
+        .persistent()
+        .get(&Key::Ids)
+        .unwrap_or(Vec::new(e));
+
+    let mut new_ids = Vec::new(e);
+    for id in ids.iter() {
+        if id != ticket.id {
+            new_ids.push_back(id);
+        }
+    }
+    e.storage().persistent().set(&Key::Ids, &new_ids);
 }
 
 pub fn add_ticket_to_user(e: &Env, user: &Address, ticket_id: u32) {

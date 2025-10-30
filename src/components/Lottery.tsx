@@ -1055,6 +1055,28 @@ export const Lottery = () => {
                   <div className="amber-ticket-amount">
                     ${(Number(ticket.amount) / 10000000).toFixed(2)} USDC
                   </div>
+                  {ticket.won && lotteryState.amount_of_yield > 0n && (
+                    <div
+                      className="amber-text"
+                      style={{
+                        color: "#FFD700",
+                        marginTop: "5px",
+                        fontSize: "0.85rem",
+                      }}
+                    >
+                      + $
+                      {(
+                        Number(lotteryState.amount_of_yield) / 10000000
+                      ).toFixed(2)}{" "}
+                      YIELD = $
+                      {(
+                        (Number(ticket.amount) +
+                          Number(lotteryState.amount_of_yield)) /
+                        10000000
+                      ).toFixed(2)}{" "}
+                      TOTAL
+                    </div>
+                  )}
                 </div>
                 <button
                   type="button"
