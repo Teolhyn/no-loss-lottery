@@ -38,6 +38,7 @@ enum Key {
     TicketCounter,
     UserTickets(Address),
     SentBalance,
+    Blender,
 }
 
 pub fn write_admin(e: &Env, admin: &Address) {
@@ -177,4 +178,15 @@ pub fn read_sent_balance(e: &Env) -> Result<i128, LotteryError> {
         .persistent()
         .get(&Key::SentBalance)
         .ok_or(LotteryError::SentToBlendNotFound)
+}
+
+pub fn write_blend_address(e: &Env, blend_address: &Address) {
+    e.storage().instance().set(&Key::Blender, &blend_address);
+}
+
+pub fn read_blend_address(e: &Env) -> Result<Address, LotteryError> {
+    e.storage()
+        .instance()
+        .get(&Key::Blender)
+        .ok_or(LotteryError::BlenderNotFound)
 }

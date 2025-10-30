@@ -66,7 +66,8 @@ client = true
 constructor_args = """
 --admin GBEFGOMLLAWHNSZIED3VWGM7KP6VPE6LV662TRI2ZLYLEBD3KZZZC2MP
 --token CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC
---ticket_amount 10000000
+--ticket_amount 100000000
+--blend_address CDDG7DLOWSHRYQ2HWGZEZ4UTR7LPTKFFHN3QUCSZEXOWOPARMONX6T65
 """
 
 # Coming Soon: Specify live contracts to bind & import in this project using the given name.

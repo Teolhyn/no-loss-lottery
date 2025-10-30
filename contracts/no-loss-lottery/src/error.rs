@@ -12,4 +12,7 @@ pub enum LotteryError {
     AlreadyInitialized = 7,
     NotAuthorized = 8,
     SentToBlendNotFound = 9,
+    BlenderNotFound = 10,
+    AdminNotFound = 11,
+    BlendPositionNotFound = 12,
 }

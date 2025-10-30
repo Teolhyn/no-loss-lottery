@@ -19,7 +19,7 @@ const amberStyles = `
   }
 
   .amber-container {
-    background: #0A0500;
+    background: rgba(255, 170, 0, 0.03);
     color: #FFAA00;
     font-family: 'Courier New', monospace;
     min-height: 100vh;
@@ -442,6 +442,7 @@ export const Lottery = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [winningTicket, setWinningTicket] = useState<Ticket | null>(null);
   const [adminAddress, setAdminAddress] = useState<string | null>(null);
+  const [ticketAmount, setTicketAmount] = useState<bigint>(BigInt(10000000)); // Default 1 XLM
 
   const { address, signTransaction } = useWallet();
   const { isFunded } = useWalletBalance();
@@ -538,6 +539,13 @@ export const Lottery = () => {
           }
         }
         setAdminAddress(adminAddressStr);
+
+        // Fetch ticket amount from contract
+        const ticketAmountResult = await lotteryContract.get_ticket_amount();
+        if (ticketAmountResult.result.isOk()) {
+          const amount = ticketAmountResult.result.unwrap();
+          setTicketAmount(BigInt(amount.toString()));
+        }
 
         await loadUserTickets();
       } catch (error) {
@@ -680,7 +688,7 @@ export const Lottery = () => {
     }
   };
 
-  const ticketAmountXLM = 1;
+  const ticketAmountXLM = Number(ticketAmount) / 10000000;
   const isAdmin =
     address &&
     adminAddress &&
