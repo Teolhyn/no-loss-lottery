@@ -14,6 +14,9 @@ export default tseslint.config(
     "packages",
     "src/contracts/*",
     "!src/contracts/util.ts",
+    ".vite",
+    "target",
+    "src/debug",
   ]),
   {
     extends: [
