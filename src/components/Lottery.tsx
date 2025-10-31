@@ -441,7 +441,9 @@ export const Lottery = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [winningTicket, setWinningTicket] = useState<Ticket | null>(null);
   const [adminAddress, setAdminAddress] = useState<string | null>(null);
-  const [ticketAmount, setTicketAmount] = useState<bigint>(BigInt(10000000)); // Default 1 XLM
+  const [ticketAmount, setTicketAmount] = useState<bigint>(() =>
+    BigInt(10000000),
+  ); // Default 1 XLM
 
   const { address, signTransaction } = useWallet();
   const { isFunded } = useWalletBalance();

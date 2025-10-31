@@ -78,6 +78,7 @@ export function useSubscription(
                 error,
               );
             } finally {
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
               paging[id].pagingToken = event.pagingToken;
             }
           });
