@@ -6,6 +6,7 @@ import { nodePolyfills } from "vite-plugin-node-polyfills";
 // https://vite.dev/config/
 export default defineConfig(() => {
   return {
+    base: process.env.GITHUB_ACTIONS ? "/no-loss-lottery/" : "/",
     plugins: [
       react(),
       nodePolyfills({
