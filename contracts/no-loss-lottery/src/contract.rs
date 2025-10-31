@@ -9,7 +9,7 @@ use crate::storage;
 use crate::storage::{LotteryState, LotteryStatus, Ticket};
 
 mod blend {
-    soroban_sdk::contractimport!(file = "../../target/wasm32-unknown-unknown/release/pool.wasm");
+    soroban_sdk::contractimport!(file = "../wasm/pool.wasm");
 }
 
 #[contract]
