@@ -183,6 +183,13 @@ impl NoLossLottery {
         Ok(())
     }
 
+    /// This function is purely for the purpose of making the lottery trustless
+    /// regarding the availability of funds. Without this admin could keep the state
+    /// as YieldFarming making it impossible to redeem the tickets. While it wont benefit the
+    /// admin, I believe it's still good to have a function anyone can call to end the yield
+    /// YieldFarming so that funds can be withdrawn from blend and tickets can be redeemed.
+    pub fn set_status_ended_public() {}
+
     pub fn get_lottery_state(e: Env) -> Result<LotteryState, LotteryError> {
         storage::read_lottery_state(&e)
     }
@@ -271,8 +278,6 @@ impl NoLossLottery {
         if storage::read_lottery_status(&e)? != LotteryStatus::Ended {
             return Err(LotteryError::WrongStatus);
         }
-        let admin = storage::read_admin(&e).ok_or(LotteryError::AdminNotFound)?;
-        admin.require_auth();
         let token_address = storage::read_currency(&e)?;
         let token_client = token::Client::new(&e, &token_address);
         let contract_balance_before = token_client.balance(&e.current_contract_address());
@@ -289,17 +294,11 @@ impl NoLossLottery {
             }
         }
 
-        // bTokens reserve_id * 2 + 1, dTokens reserve_id * 2.
-        let reserve_token_id = reserve_index * 2 + 1;
-
         let positions = blend_client.get_positions(&e.current_contract_address());
         positions
             .supply
             .get(reserve_index)
             .ok_or(LotteryError::BlendPositionNotFound)?;
-
-        let reserve_ids = vec![&e, reserve_token_id];
-        blend_client.claim(&e.current_contract_address(), &reserve_ids, &admin);
 
         let withdraw_request = blend::Request {
             address: token_address.clone(),
@@ -347,6 +346,28 @@ impl NoLossLottery {
         storage::write_lottery_state(&e, &lottery_state);
 
         Ok(yield_gained)
+    }
+
+    pub fn admin_claim_emissions(e: &Env) -> Result<(), LotteryError> {
+        let admin = storage::read_admin(e).ok_or(LotteryError::AdminNotFound)?;
+
+        let token_address = storage::read_currency(&e)?;
+        let blend_address = storage::read_blend_address(&e)?;
+        let blend_client = blend::Client::new(&e, &blend_address);
+
+        let reserve_list = blend_client.get_reserve_list();
+        let mut reserve_index: u32 = 0;
+        for (i, address) in reserve_list.iter().enumerate() {
+            if address == token_address {
+                reserve_index = i as u32;
+                break;
+            }
+        }
+        // bTokens reserve_id * 2 + 1, dTokens reserve_id * 2.
+        let reserve_token_id = reserve_index * 2 + 1;
+        let reserve_ids = vec![&e, reserve_token_id];
+        blend_client.claim(&e.current_contract_address(), &reserve_ids, &admin);
+        Ok(())
     }
 }
 
