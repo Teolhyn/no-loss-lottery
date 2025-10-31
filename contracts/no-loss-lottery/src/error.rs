@@ -17,4 +17,7 @@ pub enum LotteryError {
     AdminNotFound = 11,
     BlendPositionNotFound = 12,
     IdsNotFound = 13,
+    WinnerSelectedNotFound = 14,
+    WinnerAlreadySelected = 15,
+    BalancesInBlender = 16,
 }

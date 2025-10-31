@@ -15,6 +15,7 @@ pub struct LotteryState {
     pub no_participants: u32,
     pub amount_of_yield: i128,
     pub token: Address,
+    pub in_blender: bool,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -41,6 +42,7 @@ enum Key {
     SentBalance,
     Blender,
     Ids,
+    WinnerSelected,
 }
 
 pub fn write_admin(e: &Env, admin: &Address) {
@@ -222,4 +224,15 @@ pub fn read_ids(e: &Env) -> Result<Vec<u32>, LotteryError> {
         .persistent()
         .get(&Key::Ids)
         .ok_or(LotteryError::IdsNotFound)
+}
+
+pub fn write_winner_selected(e: &Env, value: bool) {
+    e.storage().instance().set(&Key::WinnerSelected, &value);
+}
+
+pub fn read_winner_selected(e: &Env) -> Result<bool, LotteryError> {
+    e.storage()
+        .instance()
+        .get(&Key::WinnerSelected)
+        .ok_or(LotteryError::WinnerSelectedNotFound)
 }

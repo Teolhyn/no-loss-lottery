@@ -30,12 +30,14 @@ impl NoLossLottery {
         storage::write_token_amount(&e, &ticket_amount);
         storage::write_blend_address(&e, &blend_address);
         storage::write_sent_balance(&e, &0_i128);
+        storage::write_winner_selected(&e, false);
 
         let initial_state = LotteryState {
             status: LotteryStatus::BuyIn,
             no_participants: 0,
             amount_of_yield: 0,
             token: token.clone(),
+            in_blender: false,
         };
         storage::write_lottery_state(&e, &initial_state);
     }
@@ -128,6 +130,14 @@ impl NoLossLottery {
             return Err(LotteryError::WrongStatus);
         }
 
+        if storage::read_winner_selected(&e)? == true {
+            return Err(LotteryError::WinnerAlreadySelected);
+        }
+
+        if storage::read_lottery_state(&e)?.in_blender == true {
+            return Err(LotteryError::BalancesInBlender);
+        }
+
         let active_ids = storage::read_ids(&e)?;
         let winner_id_index: u64 = e.prng().gen_range(0..active_ids.len() as u64);
 
@@ -138,20 +148,14 @@ impl NoLossLottery {
         let mut winner_ticket = storage::read_ticket(&e, winner_id)?;
         winner_ticket.won = true;
         storage::write_ticket(&e, &winner_ticket);
+        storage::write_winner_selected(&e, true);
 
         Ok(winner_ticket)
     }
 
-    pub fn set_status(
-        e: Env,
-        admin: Address,
-        new_status: LotteryStatus,
-    ) -> Result<(), LotteryError> {
+    pub fn set_status(e: Env, new_status: LotteryStatus) -> Result<(), LotteryError> {
+        let admin = storage::read_admin(&e).ok_or(LotteryError::AdminNotFound)?;
         admin.require_auth();
-
-        if !storage::is_admin(&e, &admin) {
-            return Err(LotteryError::NotAuthorized);
-        }
 
         let current_status = storage::read_lottery_status(&e)?;
 
@@ -164,6 +168,10 @@ impl NoLossLottery {
 
         if !is_valid_transition {
             return Err(LotteryError::WrongStatus);
+        }
+
+        if new_status == LotteryStatus::BuyIn {
+            storage::write_winner_selected(&e, false);
         }
 
         storage::write_lottery_status(&e, &new_status);
@@ -253,6 +261,9 @@ impl NoLossLottery {
 
         let balance_before = storage::read_sent_balance(&e)?;
         storage::write_sent_balance(&e, &(contract_balance + balance_before));
+        let mut lottery_state = storage::read_lottery_state(&e)?;
+        lottery_state.in_blender = true;
+        storage::write_lottery_state(&e, &lottery_state);
         Ok(())
     }
 
@@ -332,6 +343,7 @@ impl NoLossLottery {
 
         let mut lottery_state = storage::read_lottery_state(&e)?;
         lottery_state.amount_of_yield = yield_gained;
+        lottery_state.in_blender = false;
         storage::write_lottery_state(&e, &lottery_state);
 
         Ok(yield_gained)
@@ -386,12 +398,11 @@ mod tests {
             e.mock_all_auths();
             let TestEnv {
                 user,
-                admin,
                 lottery_client,
                 ..
             } = setup_test_env(&e);
 
-            lottery_client.set_status(&admin, &LotteryStatus::YieldFarming);
+            lottery_client.set_status(&LotteryStatus::YieldFarming);
 
             lottery_client.buy_ticket(&user.clone());
         }
@@ -403,12 +414,11 @@ mod tests {
             e.mock_all_auths();
             let TestEnv {
                 user,
-                admin,
                 lottery_client,
                 ..
             } = setup_test_env(&e);
 
-            lottery_client.set_status(&admin, &LotteryStatus::Ended);
+            lottery_client.set_status(&LotteryStatus::Ended);
 
             lottery_client.buy_ticket(&user.clone());
         }
@@ -484,13 +494,12 @@ mod tests {
             e.mock_all_auths();
             let TestEnv {
                 user,
-                admin,
                 lottery_client,
                 ..
             } = setup_test_env(&e);
 
             let ticket = lottery_client.buy_ticket(&user.clone());
-            lottery_client.set_status(&admin, &LotteryStatus::YieldFarming);
+            lottery_client.set_status(&LotteryStatus::YieldFarming);
             lottery_client.redeem_ticket(&ticket);
         }
 
@@ -500,14 +509,13 @@ mod tests {
             e.mock_all_auths();
             let TestEnv {
                 user,
-                admin,
                 lottery_client,
                 ..
             } = setup_test_env(&e);
 
             let ticket = lottery_client.buy_ticket(&user.clone());
-            lottery_client.set_status(&admin, &LotteryStatus::YieldFarming);
-            lottery_client.set_status(&admin, &LotteryStatus::Ended);
+            lottery_client.set_status(&LotteryStatus::YieldFarming);
+            lottery_client.set_status(&LotteryStatus::Ended);
             lottery_client.redeem_ticket(&ticket);
 
             let user_tickets = lottery_client.get_user_tickets(&user);
@@ -550,13 +558,9 @@ mod tests {
         fn set_status_yieldfarming() {
             let e = Env::default();
             e.mock_all_auths();
-            let TestEnv {
-                lottery_client,
-                admin,
-                ..
-            } = setup_test_env(&e);
+            let TestEnv { lottery_client, .. } = setup_test_env(&e);
 
-            lottery_client.set_status(&admin, &LotteryStatus::YieldFarming);
+            lottery_client.set_status(&LotteryStatus::YieldFarming);
 
             let state = lottery_client.get_lottery_state();
 
@@ -567,14 +571,10 @@ mod tests {
         fn set_status_ended() {
             let e = Env::default();
             e.mock_all_auths();
-            let TestEnv {
-                lottery_client,
-                admin,
-                ..
-            } = setup_test_env(&e);
+            let TestEnv { lottery_client, .. } = setup_test_env(&e);
 
-            lottery_client.set_status(&admin, &LotteryStatus::YieldFarming);
-            lottery_client.set_status(&admin, &LotteryStatus::Ended);
+            lottery_client.set_status(&LotteryStatus::YieldFarming);
+            lottery_client.set_status(&LotteryStatus::Ended);
 
             let state = lottery_client.get_lottery_state();
 
@@ -585,14 +585,10 @@ mod tests {
         fn set_status_buyin() {
             let e = Env::default();
             e.mock_all_auths();
-            let TestEnv {
-                lottery_client,
-                admin,
-                ..
-            } = setup_test_env(&e);
-            lottery_client.set_status(&admin, &LotteryStatus::YieldFarming);
-            lottery_client.set_status(&admin, &LotteryStatus::Ended);
-            lottery_client.set_status(&admin, &LotteryStatus::BuyIn);
+            let TestEnv { lottery_client, .. } = setup_test_env(&e);
+            lottery_client.set_status(&LotteryStatus::YieldFarming);
+            lottery_client.set_status(&LotteryStatus::Ended);
+            lottery_client.set_status(&LotteryStatus::BuyIn);
 
             let state = lottery_client.get_lottery_state();
 
@@ -604,12 +600,8 @@ mod tests {
         fn set_status_ended_after_buyin() {
             let e = Env::default();
             e.mock_all_auths();
-            let TestEnv {
-                lottery_client,
-                admin,
-                ..
-            } = setup_test_env(&e);
-            lottery_client.set_status(&admin, &LotteryStatus::Ended);
+            let TestEnv { lottery_client, .. } = setup_test_env(&e);
+            lottery_client.set_status(&LotteryStatus::Ended);
         }
 
         #[test]
@@ -617,14 +609,10 @@ mod tests {
         fn set_status_yieldfarming_after_ended() {
             let e = Env::default();
             e.mock_all_auths();
-            let TestEnv {
-                lottery_client,
-                admin,
-                ..
-            } = setup_test_env(&e);
-            lottery_client.set_status(&admin, &LotteryStatus::YieldFarming);
-            lottery_client.set_status(&admin, &LotteryStatus::Ended);
-            lottery_client.set_status(&admin, &LotteryStatus::YieldFarming);
+            let TestEnv { lottery_client, .. } = setup_test_env(&e);
+            lottery_client.set_status(&LotteryStatus::YieldFarming);
+            lottery_client.set_status(&LotteryStatus::Ended);
+            lottery_client.set_status(&LotteryStatus::YieldFarming);
         }
 
         #[test]
@@ -632,13 +620,9 @@ mod tests {
         fn set_status_buyin_after_yieldfarming() {
             let e = Env::default();
             e.mock_all_auths();
-            let TestEnv {
-                lottery_client,
-                admin,
-                ..
-            } = setup_test_env(&e);
-            lottery_client.set_status(&admin, &LotteryStatus::YieldFarming);
-            lottery_client.set_status(&admin, &LotteryStatus::BuyIn);
+            let TestEnv { lottery_client, .. } = setup_test_env(&e);
+            lottery_client.set_status(&LotteryStatus::YieldFarming);
+            lottery_client.set_status(&LotteryStatus::BuyIn);
         }
     }
 
