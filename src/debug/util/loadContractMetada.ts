@@ -90,6 +90,7 @@ const loadWasmBinary = async (wasmHash: string) => {
 
 export const getWasmContractData = async (wasmBytes: Buffer) => {
   try {
+    // @ts-expect-error - Buffer type compatibility issue with WebAssembly.compile
     const mod = await WebAssembly.compile(wasmBytes);
     const result: Record<ContractSectionName, ContractData> = {
       contractmetav0: {},

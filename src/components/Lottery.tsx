@@ -664,7 +664,9 @@ export const Lottery = () => {
         const error = response.result.unwrapErr();
         addNotification(`Error: ${JSON.stringify(error)}`, "error");
       } else {
-        setLotteryState({ ...lotteryState, status: newStatus });
+        if (lotteryState) {
+          setLotteryState({ ...lotteryState, status: newStatus });
+        }
         addNotification(`Status changed to ${newStatus}`, "success");
       }
     } catch (error) {
