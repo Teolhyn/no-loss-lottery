@@ -4,13 +4,39 @@ import {
   StellarWalletsKit,
   WalletNetwork,
   sep43Modules,
+  IModalTheme,
+  IButtonTheme,
 } from "@creit.tech/stellar-wallets-kit";
 import { Horizon } from "@stellar/stellar-sdk";
 import { networkPassphrase, stellarNetwork } from "../contracts/util";
 
+// Amber terminal theme for wallet modal
+const amberModalTheme: IModalTheme = {
+  bgColor: "#0A0500",
+  textColor: "#FFAA00",
+  solidTextColor: "#FFAA00",
+  headerButtonColor: "#FFAA00",
+  dividerColor: "#FFAA00",
+  helpBgColor: "rgba(255, 170, 0, 0.05)",
+  notAvailableTextColor: "rgba(255, 170, 0, 0.4)",
+  notAvailableBgColor: "rgba(255, 170, 0, 0.02)",
+  notAvailableBorderColor: "rgba(255, 170, 0, 0.2)",
+};
+
+const amberButtonTheme: IButtonTheme = {
+  bgColor: "transparent",
+  textColor: "#FFAA00",
+  solidTextColor: "#FFAA00",
+  dividerColor: "#FFAA00",
+  buttonPadding: "12px 24px",
+  buttonBorderRadius: "0px",
+};
+
 const kit: StellarWalletsKit = new StellarWalletsKit({
   network: networkPassphrase as WalletNetwork,
   modules: sep43Modules(),
+  modalTheme: amberModalTheme,
+  buttonTheme: amberButtonTheme,
 });
 
 export const connectWallet = async () => {

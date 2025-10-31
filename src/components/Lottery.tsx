@@ -10,6 +10,7 @@ import { WalletButton } from "./WalletButton";
 import NetworkPill from "./NetworkPill";
 import FundAccountButton from "./FundAccountButton";
 import { useNavigate } from "react-router-dom";
+import packageJson from "../../package.json";
 
 // 80s Amber Terminal Theme CSS
 const amberStyles = `
@@ -321,7 +322,6 @@ const amberStyles = `
   }
 
   .amber-ticket-winner::before {
-    content: "★";
     color: #FFD700;
   }
 
@@ -360,12 +360,11 @@ const amberStyles = `
   }
 
   .amber-winner-box::before {
-    content: "★ WINNER ★";
     position: absolute;
     top: -12px;
     left: 50%;
     transform: translateX(-50%);
-    background: #0A0500;
+    background: transparent;
     padding: 0 15px;
     font-size: 0.9rem;
     text-shadow: 0 0 10px #FFD700;
@@ -655,7 +654,6 @@ export const Lottery = () => {
       const statusEnum = { tag: newStatus, values: undefined };
 
       const tx = await lottery.set_status({
-        admin: address,
         new_status: statusEnum,
       });
       const response = await tx.signAndSend();
@@ -794,7 +792,7 @@ export const Lottery = () => {
         <style>{amberStyles}</style>
         <div className="amber-header">
           <div className="amber-title">NO LOSS LOTTERY</div>
-          <div className="amber-subtitle">SYSTEM v1.0</div>
+          <div className="amber-subtitle">SYSTEM v{packageJson.version}</div>
         </div>
         <div className="amber-content">
           <div className="amber-wallet-bar">
@@ -830,7 +828,7 @@ export const Lottery = () => {
         <style>{amberStyles}</style>
         <div className="amber-header">
           <div className="amber-title">NO LOSS LOTTERY</div>
-          <div className="amber-subtitle">SYSTEM v1.0</div>
+          <div className="amber-subtitle">SYSTEM v{packageJson.version}</div>
         </div>
         <div className="amber-content">
           <div className="amber-wallet-bar">
@@ -867,7 +865,7 @@ export const Lottery = () => {
         <style>{amberStyles}</style>
         <div className="amber-header">
           <div className="amber-title">NO LOSS LOTTERY</div>
-          <div className="amber-subtitle">SYSTEM v1.0</div>
+          <div className="amber-subtitle">SYSTEM v{packageJson.version}</div>
         </div>
         <div className="amber-content">
           <div className="amber-wallet-bar">
@@ -902,7 +900,7 @@ export const Lottery = () => {
       {/* Header */}
       <div className="amber-header">
         <div className="amber-title">NO LOSS LOTTERY</div>
-        <div className="amber-subtitle">SYSTEM v1.0</div>
+        <div className="amber-subtitle">SYSTEM v{packageJson.version}</div>
       </div>
 
       <div className="amber-content">
@@ -1042,39 +1040,40 @@ export const Lottery = () => {
             {myTickets.map((ticket) => (
               <div
                 key={ticket.id}
-                className={
-                  ticket.won
-                    ? "amber-ticket amber-ticket-winner"
-                    : "amber-ticket"
-                }
+                className={ticket.won ? "amber-ticket" : "amber-ticket"}
               >
                 <div>
                   <div className="amber-ticket-id">
-                    TICKET #{ticket.id} {ticket.won && "★ WINNER"}
+                    TICKET #{ticket.id} {ticket.won && "> WINNER <"}
                   </div>
+
                   <div className="amber-ticket-amount">
                     ${(Number(ticket.amount) / 10000000).toFixed(2)} USDC
                   </div>
+
                   {ticket.won && lotteryState.amount_of_yield > 0n && (
                     <div
                       className="amber-text"
                       style={{
-                        color: "#FFD700",
                         marginTop: "5px",
                         fontSize: "0.85rem",
                       }}
                     >
                       + $
-                      {(
-                        Number(lotteryState.amount_of_yield) / 10000000
-                      ).toFixed(2)}{" "}
-                      YIELD = $
-                      {(
-                        (Number(ticket.amount) +
-                          Number(lotteryState.amount_of_yield)) /
-                        10000000
-                      ).toFixed(2)}{" "}
-                      TOTAL
+                      {(() => {
+                        const value =
+                          Number(lotteryState.amount_of_yield) / 10000000;
+                        if (value === 0) return "0.00";
+
+                        const digits = 2;
+                        const factor = Math.pow(
+                          10,
+                          digits - Math.floor(Math.log10(Math.abs(value))) - 1,
+                        );
+                        const truncated = Math.floor(value * factor) / factor;
+                        return truncated.toString();
+                      })()}{" "}
+                      YIELD
                     </div>
                   )}
                 </div>
@@ -1116,8 +1115,10 @@ export const Lottery = () => {
               {isSubmitting ? "Processing" : "Run Raffle"}
             </button>
             {winningTicket && (
-              <div className="amber-winner-box">
-                <div className="amber-winner-number">#{winningTicket.id}</div>
+              <div className="amber-section">
+                <div className="amber-ticket-id">
+                  Winner: Ticket #{winningTicket.id}
+                </div>
                 <div className="amber-text">REWARD: DEPOSIT + ALL YIELD</div>
               </div>
             )}

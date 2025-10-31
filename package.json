@@ -1,7 +1,7 @@
 {
   "name": "scaffold-stellar-frontend",
   "type": "module",
-  "version": "0.0.1",
+  "version": "0.2.4",
   "private": true,
   "scripts": {
     "dev": "concurrently \"stellar scaffold watch --build-clients\" \"vite\"",
