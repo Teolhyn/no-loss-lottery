@@ -11,6 +11,7 @@ test_snapshots
 # build output
 dist
 dist-ssr
+.vite
 
 # dependencies
 node_modules/
