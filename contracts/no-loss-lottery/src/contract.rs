@@ -86,46 +86,28 @@ impl NoLossLottery {
         let state = storage::read_lottery_state(&e)?;
         let token_client = token::Client::new(&e, &ticket.token);
 
-        let result = match (state.status, ticket.won) {
-            (LotteryStatus::YieldFarming, _) => Err(LotteryError::WrongStatus),
-
-            (LotteryStatus::BuyIn, _) => {
-                token_client.transfer(&e.current_contract_address(), &ticket.user, &ticket.amount);
-                Ok(())
-            }
-
-            (LotteryStatus::Ended, true) => {
-                token_client.transfer(
-                    &e.current_contract_address(),
-                    &ticket.user,
-                    &(ticket.amount + state.amount_of_yield),
-                );
-                Ok(())
-            }
-
-            (LotteryStatus::Ended, false) => {
-                token_client.transfer(&e.current_contract_address(), &ticket.user, &ticket.amount);
-                Ok(())
-            }
-        };
-
-        if result.is_ok() {
-            storage::remove_ticket_from_user(&e, &ticket.user, ticket.id);
-
-            // Check if user has no more tickets
-            let user_tickets = storage::get_user_tickets(&e, &ticket.user);
-            if user_tickets.is_empty() {
-                // User has no more tickets - decrement unique participants
-                let mut state = storage::read_lottery_state(&e)?;
-                state.no_participants -= 1;
-                storage::write_lottery_state(&e, &state);
-            }
+        if state.status == LotteryStatus::YieldFarming || state.in_blender {
+            return Err(LotteryError::WrongStatus);
         }
 
-        result
+        token_client.transfer(&e.current_contract_address(), &ticket.user, &ticket.amount);
+        storage::remove_ticket_from_user(&e, &ticket.user, ticket.id);
+        storage::remove_ticket(&e, ticket.clone());
+
+        // Check if user has no more tickets
+        let user_tickets = storage::get_user_tickets(&e, &ticket.user);
+        if user_tickets.is_empty() {
+            // User has no more tickets - decrement unique participants
+            let mut state = storage::read_lottery_state(&e)?;
+            state.no_participants -= 1;
+            storage::write_lottery_state(&e, &state);
+        }
+
+        Ok(())
     }
 
     pub fn raffle(e: Env) -> Result<Ticket, LotteryError> {
+        let mut lottery_state = storage::read_lottery_state(&e)?;
         if storage::read_lottery_status(&e)? != LotteryStatus::Ended {
             return Err(LotteryError::WrongStatus);
         }
@@ -134,7 +116,7 @@ impl NoLossLottery {
             return Err(LotteryError::WinnerAlreadySelected);
         }
 
-        if storage::read_lottery_state(&e)?.in_blender == true {
+        if lottery_state.in_blender == true {
             return Err(LotteryError::BalancesInBlender);
         }
 
@@ -145,10 +127,16 @@ impl NoLossLottery {
             .get(winner_id_index as u32)
             .ok_or(LotteryError::TicketNotFound)?;
 
+        let prize = lottery_state.amount_of_yield;
+
         let mut winner_ticket = storage::read_ticket(&e, winner_id)?;
         winner_ticket.won = true;
+        winner_ticket.amount = winner_ticket.amount + prize;
         storage::write_ticket(&e, &winner_ticket);
         storage::write_winner_selected(&e, true);
+
+        lottery_state.amount_of_yield = 0;
+        storage::write_lottery_state(&e, &lottery_state);
 
         Ok(winner_ticket)
     }

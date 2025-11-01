@@ -1055,31 +1055,39 @@ export const Lottery = () => {
                     ${(Number(ticket.amount) / 10000000).toFixed(2)} USDC
                   </div>
 
-                  {ticket.won && lotteryState.amount_of_yield > 0n && (
-                    <div
-                      className="amber-text"
-                      style={{
-                        marginTop: "5px",
-                        fontSize: "0.85rem",
-                      }}
-                    >
-                      + $
-                      {(() => {
-                        const value =
-                          Number(lotteryState.amount_of_yield) / 10000000;
-                        if (value === 0) return "0.00";
+                  {ticket.won &&
+                    (() => {
+                      const prize =
+                        Number(ticket.amount) - Number(ticketAmount);
+                      return prize > 0;
+                    })() && (
+                      <div
+                        className="amber-text"
+                        style={{
+                          marginTop: "5px",
+                          fontSize: "0.85rem",
+                        }}
+                      >
+                        + $
+                        {(() => {
+                          const prize =
+                            Number(ticket.amount) - Number(ticketAmount);
+                          const value = prize / 10000000;
+                          if (value === 0) return "0.00";
 
-                        const digits = 2;
-                        const factor = Math.pow(
-                          10,
-                          digits - Math.floor(Math.log10(Math.abs(value))) - 1,
-                        );
-                        const truncated = Math.floor(value * factor) / factor;
-                        return truncated.toString();
-                      })()}{" "}
-                      YIELD
-                    </div>
-                  )}
+                          const digits = 2;
+                          const factor = Math.pow(
+                            10,
+                            digits -
+                              Math.floor(Math.log10(Math.abs(value))) -
+                              1,
+                          );
+                          const truncated = Math.floor(value * factor) / factor;
+                          return truncated.toString();
+                        })()}{" "}
+                        YIELD
+                      </div>
+                    )}
                 </div>
                 <button
                   type="button"
