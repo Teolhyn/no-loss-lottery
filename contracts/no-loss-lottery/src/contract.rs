@@ -270,8 +270,8 @@ impl NoLossLottery {
             &vec![&e, deposit_request],
         );
 
-        let balance_before = storage::read_sent_balance(&e)?;
-        storage::write_sent_balance(&e, &(contract_balance + balance_before));
+        // Track the amount sent to Blend for yield calculation
+        storage::write_sent_balance(&e, &contract_balance);
         let mut lottery_state = storage::read_lottery_state(&e)?;
         lottery_state.in_blender = true;
         storage::write_lottery_state(&e, &lottery_state);
