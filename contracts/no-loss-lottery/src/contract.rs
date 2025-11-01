@@ -651,6 +651,63 @@ mod tests {
         }
     }
 
+    mod raffle {
+        use super::*;
+
+        #[test]
+        #[should_panic(expected = "Error(Contract, #1)")]
+        fn status_byuin() {
+            let e = Env::default();
+            e.mock_all_auths();
+            let TestEnv {
+                user,
+                lottery_client,
+                ..
+            } = setup_test_env(&e);
+
+            lottery_client.buy_ticket(&user.clone());
+
+            lottery_client.raffle();
+        }
+
+        #[test]
+        #[should_panic(expected = "Error(Contract, #1)")]
+        fn status_yieldfarming() {
+            let e = Env::default();
+            e.mock_all_auths();
+            let TestEnv {
+                user,
+                lottery_client,
+                ..
+            } = setup_test_env(&e);
+
+            lottery_client.buy_ticket(&user.clone());
+
+            lottery_client.set_status(&LotteryStatus::YieldFarming);
+
+            lottery_client.raffle();
+        }
+
+        #[test]
+        fn status_ended() {
+            let e = Env::default();
+            e.mock_all_auths();
+            let TestEnv {
+                user,
+                lottery_client,
+                ..
+            } = setup_test_env(&e);
+
+            lottery_client.buy_ticket(&user.clone());
+
+            lottery_client.set_status(&LotteryStatus::YieldFarming);
+            lottery_client.set_status(&LotteryStatus::Ended);
+
+            lottery_client.raffle();
+            //ASSERT
+        }
+    }
+
     struct TestEnv<'a> {
         admin: Address,
         user: Address,
