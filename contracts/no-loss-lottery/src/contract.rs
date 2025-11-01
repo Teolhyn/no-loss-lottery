@@ -2,7 +2,7 @@ use soroban_sdk::auth::{ContractContext, SubContractInvocation};
 use soroban_sdk::{
     auth::InvokerContractAuthEntry, contract, contractimpl, token, vec, Address, Env,
 };
-use soroban_sdk::{IntoVal, Symbol};
+use soroban_sdk::{Bytes, IntoVal, Symbol};
 
 use crate::error::LotteryError;
 use crate::storage;
@@ -121,7 +121,10 @@ impl NoLossLottery {
         }
 
         let active_ids = storage::read_ids(&e)?;
-        let winner_id_index: u64 = e.prng().gen_range(0..active_ids.len() as u64);
+        let seed_bytes = storage::read_seed(&e)?;
+        let prng = e.prng();
+        prng.seed(seed_bytes);
+        let winner_id_index: u64 = prng.gen_range(0..active_ids.len() as u64);
 
         let winner_id = active_ids
             .get(winner_id_index as u32)
@@ -160,6 +163,19 @@ impl NoLossLottery {
 
         if new_status == LotteryStatus::BuyIn {
             storage::write_winner_selected(&e, false);
+        }
+
+        if new_status == LotteryStatus::Ended {
+            let timestamp = e.ledger().timestamp();
+            let sequence = e.ledger().sequence();
+            let mut seed_data = Bytes::new(&e);
+            seed_data.append(&Bytes::from_array(&e, &timestamp.to_be_bytes()));
+            seed_data.append(&Bytes::from_array(&e, &sequence.to_be_bytes()));
+
+            let seed_hash = e.crypto().sha256(&seed_data);
+            let seed_bytes: Bytes = seed_hash.into();
+
+            storage::write_seed(&e, &seed_bytes);
         }
 
         storage::write_lottery_status(&e, &new_status);

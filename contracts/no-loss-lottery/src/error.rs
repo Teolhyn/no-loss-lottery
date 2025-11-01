@@ -20,4 +20,5 @@ pub enum LotteryError {
     WinnerSelectedNotFound = 14,
     WinnerAlreadySelected = 15,
     BalancesInBlender = 16,
+    SeedNotFound = 17,
 }
