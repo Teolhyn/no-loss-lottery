@@ -1,5 +1,5 @@
 use crate::error::LotteryError;
-use soroban_sdk::{contracttype, Address, Env, Vec};
+use soroban_sdk::{contracttype, Address, Bytes, Env, Vec};
 
 #[derive(PartialEq, Eq, Debug, Clone)]
 #[contracttype]
@@ -43,6 +43,7 @@ enum Key {
     Blender,
     Ids,
     WinnerSelected,
+    Seed,
 }
 
 pub fn write_admin(e: &Env, admin: &Address) {
@@ -235,4 +236,15 @@ pub fn read_winner_selected(e: &Env) -> Result<bool, LotteryError> {
         .instance()
         .get(&Key::WinnerSelected)
         .ok_or(LotteryError::WinnerSelectedNotFound)
+}
+
+pub fn write_seed(e: &Env, seed: &Bytes) {
+    e.storage().instance().set(&Key::Seed, seed);
+}
+
+pub fn read_seed(e: &Env) -> Result<Bytes, LotteryError> {
+    e.storage()
+        .instance()
+        .get(&Key::Seed)
+        .ok_or(LotteryError::SeedNotFound)
 }
