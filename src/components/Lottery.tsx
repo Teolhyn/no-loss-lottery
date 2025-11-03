@@ -444,6 +444,7 @@ export const Lottery = () => {
   const [ticketAmount, setTicketAmount] = useState<bigint>(() =>
     BigInt(10000000),
   ); // Default 1 XLM
+  const [contractBalance, setContractBalance] = useState<bigint>(BigInt(0));
 
   const { address, signTransaction } = useWallet();
   const { isFunded } = useWalletBalance();
@@ -465,6 +466,20 @@ export const Lottery = () => {
       signTransaction,
     });
   }, [address, signTransaction]);
+
+  // Load contract balance from contract
+  const loadContractBalance = useCallback(async () => {
+    try {
+      const contractBalanceResult =
+        await lotteryContract.get_contract_balance();
+      if (contractBalanceResult.result.isOk()) {
+        const balance = contractBalanceResult.result.unwrap();
+        setContractBalance(BigInt(balance.toString()));
+      }
+    } catch (error) {
+      console.error("Error loading contract balance:", error);
+    }
+  }, []);
 
   // Load user tickets from contract
   const loadUserTickets = useCallback(async () => {
@@ -548,6 +563,9 @@ export const Lottery = () => {
           setTicketAmount(BigInt(amount.toString()));
         }
 
+        // Fetch contract balance
+        await loadContractBalance();
+
         await loadUserTickets();
       } catch (error) {
         console.error("Error loading lottery data:", error);
@@ -558,7 +576,7 @@ export const Lottery = () => {
     };
 
     void loadLotteryData();
-  }, [addNotification, address, loadUserTickets]);
+  }, [addNotification, address, loadUserTickets, loadContractBalance]);
 
   const buyTicket = async () => {
     if (!address) return;
@@ -574,6 +592,7 @@ export const Lottery = () => {
       } else {
         addNotification("Ticket purchased successfully!", "success");
         await loadUserTickets();
+        await loadContractBalance();
       }
     } catch (error) {
       addNotification("Failed to buy ticket", "error");
@@ -600,6 +619,7 @@ export const Lottery = () => {
           "success",
         );
         await loadUserTickets();
+        await loadContractBalance();
       }
     } catch (error) {
       addNotification("Failed to redeem ticket", "error");
@@ -713,6 +733,7 @@ export const Lottery = () => {
             token: state.token,
           });
         }
+        await loadContractBalance();
       }
     } catch (error) {
       addNotification("Failed to send funds to Blend", "error");
@@ -762,6 +783,7 @@ export const Lottery = () => {
             token: state.token,
           });
         }
+        await loadContractBalance();
       }
     } catch (error) {
       addNotification("Failed to withdraw from Blend", "error");
@@ -939,9 +961,9 @@ export const Lottery = () => {
             </div>
           </div>
           <div className="amber-stat">
-            <div className="amber-stat-label">TOTAL YIELD</div>
+            <div className="amber-stat-label">TOTAL DEPOSITED</div>
             <div className="amber-stat-value">
-              {(Number(lotteryState.amount_of_yield) / 10000000).toFixed(2)}
+              ${(Number(contractBalance) / 10000000).toFixed(2)}
             </div>
           </div>
           <div className="amber-stat">
