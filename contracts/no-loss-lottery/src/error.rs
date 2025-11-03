@@ -21,4 +21,8 @@ pub enum LotteryError {
     WinnerAlreadySelected = 15,
     BalancesInBlender = 16,
     SeedNotFound = 17,
+    FarmingStartedLedgerNotFound = 18,
+    BuyInStartedLedgerNotFound = 19,
+    EndedStartedLedgerNotFound = 20,
+    MinimumTimeLockNotEnded = 21,
 }

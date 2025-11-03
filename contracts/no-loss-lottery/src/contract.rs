@@ -2,11 +2,12 @@ use soroban_sdk::auth::{ContractContext, SubContractInvocation};
 use soroban_sdk::{
     auth::InvokerContractAuthEntry, contract, contractimpl, token, vec, Address, Env,
 };
-use soroban_sdk::{Bytes, IntoVal, Symbol};
+use soroban_sdk::{IntoVal, Symbol};
 
 use crate::error::LotteryError;
-use crate::storage;
 use crate::storage::{LotteryState, LotteryStatus, Ticket};
+use crate::util::generate_and_write_seed;
+use crate::{storage, util};
 
 mod blend {
     soroban_sdk::contractimport!(file = "../wasm/pool.wasm");
@@ -112,11 +113,11 @@ impl NoLossLottery {
             return Err(LotteryError::WrongStatus);
         }
 
-        if storage::read_winner_selected(&e)? == true {
+        if storage::read_winner_selected(&e)? {
             return Err(LotteryError::WinnerAlreadySelected);
         }
 
-        if lottery_state.in_blender == true {
+        if lottery_state.in_blender {
             return Err(LotteryError::BalancesInBlender);
         }
 
@@ -134,7 +135,7 @@ impl NoLossLottery {
 
         let mut winner_ticket = storage::read_ticket(&e, winner_id)?;
         winner_ticket.won = true;
-        winner_ticket.amount = winner_ticket.amount + prize;
+        winner_ticket.amount += prize;
         storage::write_ticket(&e, &winner_ticket);
         storage::write_winner_selected(&e, true);
 
@@ -145,20 +146,21 @@ impl NoLossLottery {
     }
 
     pub fn set_status(e: Env, new_status: LotteryStatus) -> Result<(), LotteryError> {
-        let admin = storage::read_admin(&e).ok_or(LotteryError::AdminNotFound)?;
-        admin.require_auth();
-
         let current_status = storage::read_lottery_status(&e)?;
 
-        let is_valid_transition = match (current_status, new_status.clone()) {
-            (LotteryStatus::BuyIn, LotteryStatus::YieldFarming) => true,
-            (LotteryStatus::YieldFarming, LotteryStatus::Ended) => true,
-            (LotteryStatus::Ended, LotteryStatus::BuyIn) => true,
-            _ => false,
-        };
+        let is_valid_transition = matches!(
+            (current_status.clone(), new_status.clone()),
+            (LotteryStatus::BuyIn, LotteryStatus::YieldFarming)
+                | (LotteryStatus::YieldFarming, LotteryStatus::Ended)
+                | (LotteryStatus::Ended, LotteryStatus::BuyIn)
+        );
 
         if !is_valid_transition {
             return Err(LotteryError::WrongStatus);
+        }
+
+        if !util::is_timelock_passed(&e, &current_status, &new_status)? {
+            return Err(LotteryError::MinimumTimeLockNotEnded);
         }
 
         if new_status == LotteryStatus::BuyIn {
@@ -166,16 +168,12 @@ impl NoLossLottery {
         }
 
         if new_status == LotteryStatus::Ended {
-            let timestamp = e.ledger().timestamp();
-            let sequence = e.ledger().sequence();
-            let mut seed_data = Bytes::new(&e);
-            seed_data.append(&Bytes::from_array(&e, &timestamp.to_be_bytes()));
-            seed_data.append(&Bytes::from_array(&e, &sequence.to_be_bytes()));
+            generate_and_write_seed(&e);
+        }
 
-            let seed_hash = e.crypto().sha256(&seed_data);
-            let seed_bytes: Bytes = seed_hash.into();
-
-            storage::write_seed(&e, &seed_bytes);
+        if new_status == LotteryStatus::YieldFarming {
+            let current_ledger = e.ledger().sequence();
+            storage::write_farming_started_ledger(&e, current_ledger);
         }
 
         storage::write_lottery_status(&e, &new_status);
@@ -186,13 +184,6 @@ impl NoLossLottery {
 
         Ok(())
     }
-
-    /// This function is purely for the purpose of making the lottery trustless
-    /// regarding the availability of funds. Without this admin could keep the state
-    /// as YieldFarming making it impossible to redeem the tickets. While it wont benefit the
-    /// admin, I believe it's still good to have a function anyone can call to end the yield
-    /// YieldFarming so that funds can be withdrawn from blend and tickets can be redeemed.
-    pub fn set_status_ended_public() {}
 
     pub fn get_lottery_state(e: Env) -> Result<LotteryState, LotteryError> {
         storage::read_lottery_state(&e)
@@ -355,9 +346,9 @@ impl NoLossLottery {
     pub fn admin_claim_emissions(e: &Env) -> Result<(), LotteryError> {
         let admin = storage::read_admin(e).ok_or(LotteryError::AdminNotFound)?;
 
-        let token_address = storage::read_currency(&e)?;
-        let blend_address = storage::read_blend_address(&e)?;
-        let blend_client = blend::Client::new(&e, &blend_address);
+        let token_address = storage::read_currency(e)?;
+        let blend_address = storage::read_blend_address(e)?;
+        let blend_client = blend::Client::new(e, &blend_address);
 
         let reserve_list = blend_client.get_reserve_list();
         let mut reserve_index: u32 = 0;
@@ -378,7 +369,7 @@ impl NoLossLottery {
 #[cfg(test)]
 mod tests {
     use soroban_sdk::{
-        testutils::Address as _,
+        testutils::{Address as _, Ledger},
         token::{StellarAssetClient, TokenClient},
     };
 
@@ -421,11 +412,22 @@ mod tests {
         fn status_yieldfarming() {
             let e = Env::default();
             e.mock_all_auths();
+            e.ledger().with_mut(|li| {
+                li.sequence_number = 1;
+                li.min_persistent_entry_ttl = 10_000_000;
+                li.min_temp_entry_ttl = 1_000_000;
+                li.max_entry_ttl = 1_000_001;
+            });
+
             let TestEnv {
                 user,
                 lottery_client,
                 ..
             } = setup_test_env(&e);
+
+            e.ledger().with_mut(|li| {
+                li.sequence_number = 100_000;
+            });
 
             lottery_client.set_status(&LotteryStatus::YieldFarming);
 
@@ -437,11 +439,28 @@ mod tests {
         fn status_ended() {
             let e = Env::default();
             e.mock_all_auths();
+            e.ledger().with_mut(|li| {
+                li.sequence_number = 1;
+                li.min_persistent_entry_ttl = 10_000_000;
+                li.min_temp_entry_ttl = 1_000_000;
+                li.max_entry_ttl = 1_000_001;
+            });
+
             let TestEnv {
                 user,
                 lottery_client,
                 ..
             } = setup_test_env(&e);
+
+            e.ledger().with_mut(|li| {
+                li.sequence_number = 100_000;
+            });
+
+            lottery_client.set_status(&LotteryStatus::YieldFarming);
+
+            e.ledger().with_mut(|li| {
+                li.sequence_number = 300_000;
+            });
 
             lottery_client.set_status(&LotteryStatus::Ended);
 
@@ -517,6 +536,13 @@ mod tests {
         fn status_yieldfarming() {
             let e = Env::default();
             e.mock_all_auths();
+            e.ledger().with_mut(|li| {
+                li.sequence_number = 1;
+                li.min_persistent_entry_ttl = 10_000_000;
+                li.min_temp_entry_ttl = 1_000_000;
+                li.max_entry_ttl = 1_000_001;
+            });
+
             let TestEnv {
                 user,
                 lottery_client,
@@ -524,6 +550,11 @@ mod tests {
             } = setup_test_env(&e);
 
             let ticket = lottery_client.buy_ticket(&user.clone());
+
+            e.ledger().with_mut(|li| {
+                li.sequence_number = 100_000;
+            });
+
             lottery_client.set_status(&LotteryStatus::YieldFarming);
             lottery_client.redeem_ticket(&ticket);
         }
@@ -532,6 +563,13 @@ mod tests {
         fn status_ended() {
             let e = Env::default();
             e.mock_all_auths();
+            e.ledger().with_mut(|li| {
+                li.sequence_number = 1;
+                li.min_persistent_entry_ttl = 10_000_000;
+                li.min_temp_entry_ttl = 1_000_000;
+                li.max_entry_ttl = 1_000_001;
+            });
+
             let TestEnv {
                 user,
                 lottery_client,
@@ -539,7 +577,13 @@ mod tests {
             } = setup_test_env(&e);
 
             let ticket = lottery_client.buy_ticket(&user.clone());
+            e.ledger().with_mut(|li| {
+                li.sequence_number = 100_000;
+            });
             lottery_client.set_status(&LotteryStatus::YieldFarming);
+            e.ledger().with_mut(|li| {
+                li.sequence_number = 300_000;
+            });
             lottery_client.set_status(&LotteryStatus::Ended);
             lottery_client.redeem_ticket(&ticket);
 
@@ -583,7 +627,18 @@ mod tests {
         fn set_status_yieldfarming() {
             let e = Env::default();
             e.mock_all_auths();
+            e.ledger().with_mut(|li| {
+                li.sequence_number = 1;
+                li.min_persistent_entry_ttl = 10_000_000;
+                li.min_temp_entry_ttl = 1_000_000;
+                li.max_entry_ttl = 1_000_001;
+            });
+
             let TestEnv { lottery_client, .. } = setup_test_env(&e);
+
+            e.ledger().with_mut(|li| {
+                li.sequence_number = 100_000;
+            });
 
             lottery_client.set_status(&LotteryStatus::YieldFarming);
 
@@ -596,9 +651,23 @@ mod tests {
         fn set_status_ended() {
             let e = Env::default();
             e.mock_all_auths();
+            e.ledger().with_mut(|li| {
+                li.sequence_number = 1;
+                li.min_persistent_entry_ttl = 10_000_000;
+                li.min_temp_entry_ttl = 1_000_000;
+                li.max_entry_ttl = 1_000_001;
+            });
+
             let TestEnv { lottery_client, .. } = setup_test_env(&e);
 
+            e.ledger().with_mut(|li| {
+                li.sequence_number = 100_000;
+            });
+
             lottery_client.set_status(&LotteryStatus::YieldFarming);
+            e.ledger().with_mut(|li| {
+                li.sequence_number = 300_000;
+            });
             lottery_client.set_status(&LotteryStatus::Ended);
 
             let state = lottery_client.get_lottery_state();
@@ -610,9 +679,25 @@ mod tests {
         fn set_status_buyin() {
             let e = Env::default();
             e.mock_all_auths();
+            e.ledger().with_mut(|li| {
+                li.sequence_number = 1;
+                li.min_persistent_entry_ttl = 10_000_000;
+                li.min_temp_entry_ttl = 1_000_000;
+                li.max_entry_ttl = 1_000_001;
+            });
+
             let TestEnv { lottery_client, .. } = setup_test_env(&e);
+            e.ledger().with_mut(|li| {
+                li.sequence_number = 100_000;
+            });
             lottery_client.set_status(&LotteryStatus::YieldFarming);
+            e.ledger().with_mut(|li| {
+                li.sequence_number = 300_000;
+            });
             lottery_client.set_status(&LotteryStatus::Ended);
+            e.ledger().with_mut(|li| {
+                li.sequence_number = 400_000;
+            });
             lottery_client.set_status(&LotteryStatus::BuyIn);
 
             let state = lottery_client.get_lottery_state();
@@ -634,8 +719,20 @@ mod tests {
         fn set_status_yieldfarming_after_ended() {
             let e = Env::default();
             e.mock_all_auths();
+            e.ledger().with_mut(|li| {
+                li.sequence_number = 1;
+                li.min_persistent_entry_ttl = 10_000_000;
+                li.min_temp_entry_ttl = 1_000_000;
+                li.max_entry_ttl = 1_000_001;
+            });
             let TestEnv { lottery_client, .. } = setup_test_env(&e);
+            e.ledger().with_mut(|li| {
+                li.sequence_number = 100_000;
+            });
             lottery_client.set_status(&LotteryStatus::YieldFarming);
+            e.ledger().with_mut(|li| {
+                li.sequence_number = 300_000;
+            });
             lottery_client.set_status(&LotteryStatus::Ended);
             lottery_client.set_status(&LotteryStatus::YieldFarming);
         }
@@ -645,7 +742,16 @@ mod tests {
         fn set_status_buyin_after_yieldfarming() {
             let e = Env::default();
             e.mock_all_auths();
+            e.ledger().with_mut(|li| {
+                li.sequence_number = 1;
+                li.min_persistent_entry_ttl = 10_000_000;
+                li.min_temp_entry_ttl = 1_000_000;
+                li.max_entry_ttl = 1_000_001;
+            });
             let TestEnv { lottery_client, .. } = setup_test_env(&e);
+            e.ledger().with_mut(|li| {
+                li.sequence_number = 100_000;
+            });
             lottery_client.set_status(&LotteryStatus::YieldFarming);
             lottery_client.set_status(&LotteryStatus::BuyIn);
         }
