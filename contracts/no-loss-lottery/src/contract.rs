@@ -220,6 +220,19 @@ impl NoLossLottery {
         Ok(tickets)
     }
 
+    pub fn get_current_ledger(e: Env) -> u32 {
+        e.ledger().sequence()
+    }
+
+    pub fn get_status_started_ledger(e: Env) -> Result<u32, LotteryError> {
+        let status = storage::read_lottery_status(&e)?;
+        match status {
+            LotteryStatus::BuyIn => storage::read_buyin_started_ledger(&e),
+            LotteryStatus::YieldFarming => storage::read_farming_started_ledger(&e),
+            LotteryStatus::Ended => storage::read_ended_started_ledger(&e),
+        }
+    }
+
     pub fn blend_it(e: Env) -> Result<(), LotteryError> {
         if storage::read_lottery_status(&e)? != LotteryStatus::YieldFarming {
             return Err(LotteryError::WrongStatus);

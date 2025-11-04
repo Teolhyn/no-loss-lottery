@@ -11,6 +11,7 @@ import FundAccountButton from "./FundAccountButton";
 import { useNavigate } from "react-router-dom";
 import packageJson from "../../package.json";
 import { getSorobanErrorMessage } from "../util/errorHandling";
+import { useStatusCountdown } from "../hooks/useStatusCountdown";
 
 // 80s Amber Terminal Theme CSS
 const amberStyles = `
@@ -457,11 +458,22 @@ export const Lottery = () => {
     message: "",
     isActive: false,
   });
+  const [currentLedger, setCurrentLedger] = useState<number | null>(null);
+  const [statusStartedLedger, setStatusStartedLedger] = useState<number | null>(
+    null,
+  );
 
   const { address, signTransaction } = useWallet();
   const { isFunded } = useWalletBalance();
   const { addNotification } = useNotification();
   const navigate = useNavigate();
+
+  // Countdown for status transitions
+  const countdown = useStatusCountdown(
+    lotteryState?.status ?? null,
+    currentLedger,
+    statusStartedLedger,
+  );
 
   // Helper to update transaction status
   const updateTxStatus = useCallback(
@@ -473,6 +485,23 @@ export const Lottery = () => {
 
   const clearTxStatus = useCallback(() => {
     setTxStatus({ action: "", message: "", isActive: false });
+  }, []);
+
+  // Update ledger data
+  const loadLedgerData = useCallback(async () => {
+    try {
+      const currentLedgerResult = await lotteryContract.get_current_ledger();
+      setCurrentLedger(Number(currentLedgerResult.result));
+
+      const startedLedgerResult =
+        await lotteryContract.get_status_started_ledger();
+      if (startedLedgerResult.result.isOk()) {
+        const ledger = startedLedgerResult.result.unwrap();
+        setStatusStartedLedger(Number(ledger));
+      }
+    } catch (error) {
+      console.error("Error loading ledger data:", error);
+    }
   }, []);
 
   // Create a lottery client with the user's wallet
@@ -573,6 +602,9 @@ export const Lottery = () => {
         // Fetch contract balance
         await loadContractBalance();
 
+        // Fetch ledger information for countdown
+        await loadLedgerData();
+
         await loadUserTickets();
       } catch (error) {
         console.error("Error loading lottery data:", error);
@@ -590,6 +622,7 @@ export const Lottery = () => {
     loadUserTickets,
     loadContractBalance,
     loadLotteryState,
+    loadLedgerData,
   ]);
 
   const buyTicket = async () => {
@@ -745,6 +778,7 @@ export const Lottery = () => {
       } else {
         updateTxStatus("changeStatus", "Transaction confirmed");
         await loadLotteryState();
+        await loadLedgerData();
         const successMsg = `Status changed to ${newStatus}`;
         updateTxStatus("changeStatus", successMsg, false);
         addNotification(successMsg, "success");
@@ -1002,6 +1036,19 @@ export const Lottery = () => {
           <div className={`amber-value ${getStatusClass()}`}>
             {lotteryState.status}
           </div>
+          {!countdown.canTransition && countdown.remainingLedgers > 0 && (
+            <div className="amber-text" style={{ marginTop: "20px" }}>
+              <span className="amber-prompt">&gt;</span> Ledgers until status
+              can be changed: {countdown.remainingLedgers} (~
+              {countdown.timeString})
+            </div>
+          )}
+          {countdown.canTransition && (
+            <div className="amber-text" style={{ marginTop: "20px" }}>
+              <span className="amber-prompt">&gt;</span> Ready for status
+              transition
+            </div>
+          )}
         </div>
 
         {/* Stats Grid */}
