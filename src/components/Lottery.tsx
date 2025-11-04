@@ -467,6 +467,28 @@ export const Lottery = () => {
     });
   }, [address, signTransaction]);
 
+  // Load lottery state from contract
+  const loadLotteryState = useCallback(async () => {
+    try {
+      const stateResult = await lotteryContract.get_lottery_state();
+      if (stateResult.result.isOk()) {
+        const state = stateResult.result.unwrap();
+        const statusTag =
+          typeof state.status === "object" && state.status.tag
+            ? state.status.tag
+            : state.status;
+        setLotteryState({
+          status: statusTag as LotteryStatus,
+          no_participants: state.no_participants,
+          amount_of_yield: BigInt(state.amount_of_yield.toString()),
+          token: state.token,
+        });
+      }
+    } catch (error) {
+      console.error("Error loading lottery state:", error);
+    }
+  }, []);
+
   // Load contract balance from contract
   const loadContractBalance = useCallback(async () => {
     try {
@@ -509,26 +531,13 @@ export const Lottery = () => {
     }
   }, [address]);
 
-  // Load lottery state from contract
+  // Load lottery data from contract
   useEffect(() => {
     const loadLotteryData = async () => {
       try {
         setIsLoading(true);
 
-        const stateResult = await lotteryContract.get_lottery_state();
-        if (stateResult.result.isOk()) {
-          const state = stateResult.result.unwrap();
-          const statusTag =
-            typeof state.status === "object" && state.status.tag
-              ? state.status.tag
-              : state.status;
-          setLotteryState({
-            status: statusTag as LotteryStatus,
-            no_participants: state.no_participants,
-            amount_of_yield: BigInt(state.amount_of_yield.toString()),
-            token: state.token,
-          });
-        }
+        await loadLotteryState();
 
         const adminTx = await lotteryContract.get_admin();
         const simulation = adminTx.simulation as
@@ -576,7 +585,13 @@ export const Lottery = () => {
     };
 
     void loadLotteryData();
-  }, [addNotification, address, loadUserTickets, loadContractBalance]);
+  }, [
+    addNotification,
+    address,
+    loadUserTickets,
+    loadContractBalance,
+    loadLotteryState,
+  ]);
 
   const buyTicket = async () => {
     if (!address) return;
@@ -593,6 +608,7 @@ export const Lottery = () => {
         addNotification("Ticket purchased successfully!", "success");
         await loadUserTickets();
         await loadContractBalance();
+        await loadLotteryState();
       }
     } catch (error) {
       addNotification("Failed to buy ticket", "error");
@@ -620,6 +636,7 @@ export const Lottery = () => {
         );
         await loadUserTickets();
         await loadContractBalance();
+        await loadLotteryState();
       }
     } catch (error) {
       addNotification("Failed to redeem ticket", "error");
@@ -651,6 +668,7 @@ export const Lottery = () => {
         addNotification(`Ticket #${winner.id} won the lottery!`, "success");
 
         await loadUserTickets();
+        await loadLotteryState();
       }
     } catch (error) {
       addNotification("Failed to run raffle", "error");
@@ -684,10 +702,8 @@ export const Lottery = () => {
         const error = response.result.unwrapErr();
         addNotification(`Error: ${JSON.stringify(error)}`, "error");
       } else {
-        if (lotteryState) {
-          setLotteryState({ ...lotteryState, status: newStatus });
-        }
         addNotification(`Status changed to ${newStatus}`, "success");
+        await loadLotteryState();
       }
     } catch (error) {
       addNotification("Failed to change status", "error");
@@ -718,21 +734,7 @@ export const Lottery = () => {
         addNotification(`Error: ${JSON.stringify(error)}`, "error");
       } else {
         addNotification("Funds sent to Blend successfully!", "success");
-        // Reload lottery data
-        const stateResult = await lotteryContract.get_lottery_state();
-        if (stateResult.result.isOk()) {
-          const state = stateResult.result.unwrap();
-          const statusTag =
-            typeof state.status === "object" && state.status.tag
-              ? state.status.tag
-              : state.status;
-          setLotteryState({
-            status: statusTag as LotteryStatus,
-            no_participants: state.no_participants,
-            amount_of_yield: BigInt(state.amount_of_yield.toString()),
-            token: state.token,
-          });
-        }
+        await loadLotteryState();
         await loadContractBalance();
       }
     } catch (error) {
@@ -768,21 +770,7 @@ export const Lottery = () => {
           `Withdrew from Blend! Yield: ${Number(yieldAmount) / 10000000} XLM`,
           "success",
         );
-        // Reload lottery data
-        const stateResult = await lotteryContract.get_lottery_state();
-        if (stateResult.result.isOk()) {
-          const state = stateResult.result.unwrap();
-          const statusTag =
-            typeof state.status === "object" && state.status.tag
-              ? state.status.tag
-              : state.status;
-          setLotteryState({
-            status: statusTag as LotteryStatus,
-            no_participants: state.no_participants,
-            amount_of_yield: BigInt(state.amount_of_yield.toString()),
-            token: state.token,
-          });
-        }
+        await loadLotteryState();
         await loadContractBalance();
       }
     } catch (error) {
