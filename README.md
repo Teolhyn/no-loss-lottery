@@ -1,4 +1,5 @@
 <img width="992" height="290" alt="image" src="https://github.com/user-attachments/assets/fd0420d7-cbc0-4438-a3c1-1d82c4305119" />
+
 # No Loss Lottery
 
 This is a No Loss Lottery dApp built on [Stellar blockchain](https://stellar.org/) using [Blend](https://blend.capital/) for yield generation. This project was built for the [Stellar Scaffold Hackathon](https://dorahacks.io/hackathon/scaffoldstellar/detail), in which the theme was first, to use the [Stellar Scaffold](https://scaffoldstellar.org) as the starting point of the dApp, and second to use the [Stellar Wallets Kit](https://stellarwalletskit.dev/) for wallet integration.
