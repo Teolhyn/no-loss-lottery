@@ -28,6 +28,7 @@ const amberStyles = `
     padding: 0;
     margin: 0;
     position: relative;
+    overflow-x: hidden;
   }
 
   .amber-container::before {
@@ -64,8 +65,10 @@ const amberStyles = `
     position: relative;
     z-index: 10;
     max-width: 1000px;
+    width: 100%;
     margin: 0 auto;
     padding: 0 20px 20px 20px;
+    box-sizing: border-box;
   }
 
   .amber-header {
@@ -74,6 +77,7 @@ const amberStyles = `
     border-bottom: 2px solid #FFAA00;
     margin-bottom: 20px;
     position: relative;
+    overflow: hidden;
   }
 
   .amber-wallet-bar {
@@ -391,6 +395,7 @@ const amberStyles = `
   @media (max-width: 768px) {
     .amber-title {
       font-size: 1.8rem;
+      letter-spacing: 4px;
     }
 
     .amber-grid {
@@ -404,6 +409,7 @@ const amberStyles = `
     .amber-header::before,
     .amber-header::after {
       font-size: 0.5rem;
+      letter-spacing: 0px;
     }
 
     .amber-wallet-bar {
