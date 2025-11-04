@@ -5,12 +5,12 @@ import { useNotification } from "../hooks/useNotification";
 import lotteryContract from "../contracts/no_loss_lottery";
 import * as NoLossLottery from "no_loss_lottery";
 import { rpcUrl, stellarNetwork } from "../contracts/util";
-import { Address } from "@stellar/stellar-sdk";
 import { WalletButton } from "./WalletButton";
 import NetworkPill from "./NetworkPill";
 import FundAccountButton from "./FundAccountButton";
 import { useNavigate } from "react-router-dom";
 import packageJson from "../../package.json";
+import { getSorobanErrorMessage } from "../util/errorHandling";
 
 // 80s Amber Terminal Theme CSS
 const amberStyles = `
@@ -434,21 +434,46 @@ interface LotteryState {
   token: string;
 }
 
+interface TransactionStatus {
+  action: string;
+  message: string;
+  isActive: boolean;
+}
+
 export const Lottery = () => {
   const [lotteryState, setLotteryState] = useState<LotteryState | null>(null);
   const [myTickets, setMyTickets] = useState<Ticket[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [winningTicket, setWinningTicket] = useState<Ticket | null>(null);
-  const [adminAddress, setAdminAddress] = useState<string | null>(null);
   const [ticketAmount, setTicketAmount] = useState<bigint>(() =>
     BigInt(10000000),
   ); // Default 1 XLM
+  const [contractBalance, setContractBalance] = useState<bigint>(() =>
+    BigInt(0),
+  );
+  const [txStatus, setTxStatus] = useState<TransactionStatus>({
+    action: "",
+    message: "",
+    isActive: false,
+  });
 
   const { address, signTransaction } = useWallet();
   const { isFunded } = useWalletBalance();
   const { addNotification } = useNotification();
   const navigate = useNavigate();
+
+  // Helper to update transaction status
+  const updateTxStatus = useCallback(
+    (action: string, message: string, isActive: boolean = true) => {
+      setTxStatus({ action, message, isActive });
+    },
+    [],
+  );
+
+  const clearTxStatus = useCallback(() => {
+    setTxStatus({ action: "", message: "", isActive: false });
+  }, []);
 
   // Create a lottery client with the user's wallet
   const lottery = useMemo(() => {
@@ -465,6 +490,42 @@ export const Lottery = () => {
       signTransaction,
     });
   }, [address, signTransaction]);
+
+  // Load lottery state from contract
+  const loadLotteryState = useCallback(async () => {
+    try {
+      const stateResult = await lotteryContract.get_lottery_state();
+      if (stateResult.result.isOk()) {
+        const state = stateResult.result.unwrap();
+        const statusTag =
+          typeof state.status === "object" && state.status.tag
+            ? state.status.tag
+            : state.status;
+        setLotteryState({
+          status: statusTag as LotteryStatus,
+          no_participants: state.no_participants,
+          amount_of_yield: BigInt(state.amount_of_yield.toString()),
+          token: state.token,
+        });
+      }
+    } catch (error) {
+      console.error("Error loading lottery state:", error);
+    }
+  }, []);
+
+  // Load contract balance from contract
+  const loadContractBalance = useCallback(async () => {
+    try {
+      const contractBalanceResult =
+        await lotteryContract.get_contract_balance();
+      if (contractBalanceResult.result.isOk()) {
+        const balance = contractBalanceResult.result.unwrap();
+        setContractBalance(BigInt(balance.toString()));
+      }
+    } catch (error) {
+      console.error("Error loading contract balance:", error);
+    }
+  }, []);
 
   // Load user tickets from contract
   const loadUserTickets = useCallback(async () => {
@@ -494,52 +555,13 @@ export const Lottery = () => {
     }
   }, [address]);
 
-  // Load lottery state from contract
+  // Load lottery data from contract
   useEffect(() => {
     const loadLotteryData = async () => {
       try {
         setIsLoading(true);
 
-        const stateResult = await lotteryContract.get_lottery_state();
-        if (stateResult.result.isOk()) {
-          const state = stateResult.result.unwrap();
-          const statusTag =
-            typeof state.status === "object" && state.status.tag
-              ? state.status.tag
-              : state.status;
-          setLotteryState({
-            status: statusTag as LotteryStatus,
-            no_participants: state.no_participants,
-            amount_of_yield: BigInt(state.amount_of_yield.toString()),
-            token: state.token,
-          });
-        }
-
-        const adminTx = await lotteryContract.get_admin();
-        const simulation = adminTx.simulation as
-          | { result?: { retval?: unknown } }
-          | undefined;
-        const adminScVal = simulation?.result?.retval;
-
-        let adminAddressStr = null;
-        if (
-          adminScVal &&
-          typeof adminScVal === "object" &&
-          "_arm" in adminScVal &&
-          adminScVal._arm === "address" &&
-          "_value" in adminScVal
-        ) {
-          try {
-            const scAddress = adminScVal._value as Parameters<
-              typeof Address.fromScAddress
-            >[0];
-            const adminAddr = Address.fromScAddress(scAddress);
-            adminAddressStr = adminAddr.toString();
-          } catch (e) {
-            console.error("Failed to convert admin address:", e);
-          }
-        }
-        setAdminAddress(adminAddressStr);
+        await loadLotteryState();
 
         // Fetch ticket amount from contract
         const ticketAmountResult = await lotteryContract.get_ticket_amount();
@@ -548,36 +570,62 @@ export const Lottery = () => {
           setTicketAmount(BigInt(amount.toString()));
         }
 
+        // Fetch contract balance
+        await loadContractBalance();
+
         await loadUserTickets();
       } catch (error) {
         console.error("Error loading lottery data:", error);
-        addNotification("Failed to load lottery data", "error");
+        const errorMessage = getSorobanErrorMessage(error);
+        addNotification(errorMessage, "error");
       } finally {
         setIsLoading(false);
       }
     };
 
     void loadLotteryData();
-  }, [addNotification, address, loadUserTickets]);
+  }, [
+    addNotification,
+    address,
+    loadUserTickets,
+    loadContractBalance,
+    loadLotteryState,
+  ]);
 
   const buyTicket = async () => {
     if (!address) return;
 
     setIsSubmitting(true);
     try {
+      updateTxStatus("buyTicket", "Preparing transaction...");
       const tx = await lottery.buy_ticket({ user: address });
+
+      updateTxStatus("buyTicket", "Simulating transaction...");
+      updateTxStatus("buyTicket", "Sending transaction...");
       const response = await tx.signAndSend();
 
       if (response.result.isErr()) {
         const error = response.result.unwrapErr();
-        addNotification(`Error: ${JSON.stringify(error)}`, "error");
+        const errorMessage = getSorobanErrorMessage(error);
+        updateTxStatus("buyTicket", `Error: ${errorMessage}`, false);
+        addNotification(errorMessage, "error");
+        setTimeout(clearTxStatus, 5000);
       } else {
-        addNotification("Ticket purchased successfully!", "success");
+        updateTxStatus("buyTicket", "Transaction confirmed");
+        updateTxStatus("buyTicket", "Updating ticket data...");
         await loadUserTickets();
+        await loadContractBalance();
+        await loadLotteryState();
+        updateTxStatus("buyTicket", "Ticket purchased successfully", false);
+        addNotification("Ticket purchased successfully!", "success");
+        setTimeout(clearTxStatus, 3000);
       }
     } catch (error) {
-      addNotification("Failed to buy ticket", "error");
+      const errorMessage = getSorobanErrorMessage(error);
+      updateTxStatus("buyTicket", `Error: ${errorMessage}`, false);
+      addNotification(errorMessage, "error");
       console.error("Buy ticket error:", error);
+      setTimeout(clearTxStatus, 5000);
     } finally {
       setIsSubmitting(false);
     }
@@ -586,24 +634,38 @@ export const Lottery = () => {
   const redeemTicket = async (ticket: Ticket) => {
     setIsSubmitting(true);
     try {
+      updateTxStatus("redeemTicket", "Preparing redemption...");
       const tx = await lottery.redeem_ticket({ ticket });
+
+      updateTxStatus("redeemTicket", "Simulating transaction...");
+      updateTxStatus("redeemTicket", "Sending transaction...");
       const response = await tx.signAndSend();
 
       if (response.result.isErr()) {
         const error = response.result.unwrapErr();
-        addNotification(`Error: ${JSON.stringify(error)}`, "error");
+        const errorMessage = getSorobanErrorMessage(error);
+        updateTxStatus("redeemTicket", `Error: ${errorMessage}`, false);
+        addNotification(errorMessage, "error");
+        setTimeout(clearTxStatus, 5000);
       } else {
-        addNotification(
-          ticket.won
-            ? "Congratulations! Redeemed ticket + yield!"
-            : "Ticket redeemed successfully",
-          "success",
-        );
+        updateTxStatus("redeemTicket", "Transaction confirmed");
+        updateTxStatus("redeemTicket", "Updating balances...");
         await loadUserTickets();
+        await loadContractBalance();
+        await loadLotteryState();
+        const successMsg = ticket.won
+          ? "Congratulations! Redeemed ticket + yield!"
+          : "Ticket redeemed successfully";
+        updateTxStatus("redeemTicket", successMsg, false);
+        addNotification(successMsg, "success");
+        setTimeout(clearTxStatus, 3000);
       }
     } catch (error) {
-      addNotification("Failed to redeem ticket", "error");
+      const errorMessage = getSorobanErrorMessage(error);
+      updateTxStatus("redeemTicket", `Error: ${errorMessage}`, false);
+      addNotification(errorMessage, "error");
       console.error(error);
+      setTimeout(clearTxStatus, 5000);
     } finally {
       setIsSubmitting(false);
     }
@@ -612,12 +674,19 @@ export const Lottery = () => {
   const runRaffle = async () => {
     setIsSubmitting(true);
     try {
+      updateTxStatus("raffle", "Preparing raffle...");
       const tx = await lottery.raffle({});
+
+      updateTxStatus("raffle", "Simulating transaction...");
+      updateTxStatus("raffle", "Selecting winner...");
       const response = await tx.signAndSend();
 
       if (response.result.isErr()) {
         const error = response.result.unwrapErr();
-        addNotification(`Error: ${JSON.stringify(error)}`, "error");
+        const errorMessage = getSorobanErrorMessage(error);
+        updateTxStatus("raffle", `Error: ${errorMessage}`, false);
+        addNotification(errorMessage, "error");
+        setTimeout(clearTxStatus, 5000);
       } else {
         const winner = response.result.unwrap();
         const winnerTicket: Ticket = {
@@ -628,144 +697,153 @@ export const Lottery = () => {
           won: winner.won,
         };
         setWinningTicket(winnerTicket);
-        addNotification(`Ticket #${winner.id} won the lottery!`, "success");
-
+        updateTxStatus("raffle", "Winner selected");
+        updateTxStatus("raffle", "Updating lottery state...");
         await loadUserTickets();
+        await loadLotteryState();
+        const successMsg = `Ticket #${winner.id} won the lottery!`;
+        updateTxStatus("raffle", successMsg, false);
+        addNotification(successMsg, "success");
+        setTimeout(clearTxStatus, 3000);
       }
     } catch (error) {
-      addNotification("Failed to run raffle", "error");
+      const errorMessage = getSorobanErrorMessage(error);
+      updateTxStatus("raffle", `Error: ${errorMessage}`, false);
+      addNotification(errorMessage, "error");
       console.error(error);
+      setTimeout(clearTxStatus, 5000);
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const changeStatus = async (newStatus: LotteryStatus) => {
-    if (!address || !adminAddress) {
-      addNotification("Admin address not found", "error");
-      return;
-    }
-
-    if (String(address).toLowerCase() !== String(adminAddress).toLowerCase()) {
-      addNotification("Only admin can change status", "error");
+    if (!address) {
+      addNotification("Please connect your wallet", "error");
       return;
     }
 
     setIsSubmitting(true);
     try {
+      updateTxStatus("changeStatus", `Changing status to ${newStatus}...`);
       const statusEnum = { tag: newStatus, values: undefined };
 
       const tx = await lottery.set_status({
         new_status: statusEnum,
       });
+
+      updateTxStatus("changeStatus", "Simulating transaction...");
+      updateTxStatus("changeStatus", "Sending transaction...");
       const response = await tx.signAndSend();
 
       if (response.result.isErr()) {
         const error = response.result.unwrapErr();
-        addNotification(`Error: ${JSON.stringify(error)}`, "error");
+        const errorMessage = getSorobanErrorMessage(error);
+        updateTxStatus("changeStatus", `Error: ${errorMessage}`, false);
+        addNotification(errorMessage, "error");
+        setTimeout(clearTxStatus, 5000);
       } else {
-        if (lotteryState) {
-          setLotteryState({ ...lotteryState, status: newStatus });
-        }
-        addNotification(`Status changed to ${newStatus}`, "success");
+        updateTxStatus("changeStatus", "Transaction confirmed");
+        await loadLotteryState();
+        const successMsg = `Status changed to ${newStatus}`;
+        updateTxStatus("changeStatus", successMsg, false);
+        addNotification(successMsg, "success");
+        setTimeout(clearTxStatus, 3000);
       }
     } catch (error) {
-      addNotification("Failed to change status", "error");
+      const errorMessage = getSorobanErrorMessage(error);
+      updateTxStatus("changeStatus", `Error: ${errorMessage}`, false);
+      addNotification(errorMessage, "error");
       console.error(error);
+      setTimeout(clearTxStatus, 5000);
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const blendIt = async () => {
-    if (!address || !adminAddress) {
-      addNotification("Admin address not found", "error");
-      return;
-    }
-
-    if (String(address).toLowerCase() !== String(adminAddress).toLowerCase()) {
-      addNotification("Only admin can call blend_it", "error");
+    if (!address) {
+      addNotification("Please connect your wallet", "error");
       return;
     }
 
     setIsSubmitting(true);
     try {
+      updateTxStatus("blendIt", "Preparing to send funds to Blend...");
       const tx = await lottery.blend_it();
+
+      updateTxStatus("blendIt", "Simulating transaction...");
+      updateTxStatus("blendIt", "Sending transaction...");
       const response = await tx.signAndSend();
 
       if (response.result.isErr()) {
         const error = response.result.unwrapErr();
-        addNotification(`Error: ${JSON.stringify(error)}`, "error");
+        const errorMessage = getSorobanErrorMessage(error);
+        updateTxStatus("blendIt", `Error: ${errorMessage}`, false);
+        addNotification(errorMessage, "error");
+        setTimeout(clearTxStatus, 5000);
       } else {
-        addNotification("Funds sent to Blend successfully!", "success");
-        // Reload lottery data
-        const stateResult = await lotteryContract.get_lottery_state();
-        if (stateResult.result.isOk()) {
-          const state = stateResult.result.unwrap();
-          const statusTag =
-            typeof state.status === "object" && state.status.tag
-              ? state.status.tag
-              : state.status;
-          setLotteryState({
-            status: statusTag as LotteryStatus,
-            no_participants: state.no_participants,
-            amount_of_yield: BigInt(state.amount_of_yield.toString()),
-            token: state.token,
-          });
-        }
+        updateTxStatus("blendIt", "Transaction confirmed");
+        updateTxStatus("blendIt", "Updating balances...");
+        await loadLotteryState();
+        await loadContractBalance();
+        const successMsg = "Funds sent to Blend successfully!";
+        updateTxStatus("blendIt", successMsg, false);
+        addNotification(successMsg, "success");
+        setTimeout(clearTxStatus, 3000);
       }
     } catch (error) {
-      addNotification("Failed to send funds to Blend", "error");
+      const errorMessage = getSorobanErrorMessage(error);
+      updateTxStatus("blendIt", `Error: ${errorMessage}`, false);
+      addNotification(errorMessage, "error");
       console.error(error);
+      setTimeout(clearTxStatus, 5000);
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const withdrawFromBlend = async () => {
-    if (!address || !adminAddress) {
-      addNotification("Admin address not found", "error");
-      return;
-    }
-
-    if (String(address).toLowerCase() !== String(adminAddress).toLowerCase()) {
-      addNotification("Only admin can withdraw from Blend", "error");
+    if (!address) {
+      addNotification("Please connect your wallet", "error");
       return;
     }
 
     setIsSubmitting(true);
     try {
+      updateTxStatus(
+        "withdrawFromBlend",
+        "Preparing to withdraw from Blend...",
+      );
       const tx = await lottery.withdraw_from_blend();
+
+      updateTxStatus("withdrawFromBlend", "Simulating transaction...");
+      updateTxStatus("withdrawFromBlend", "Sending transaction...");
       const response = await tx.signAndSend();
 
       if (response.result.isErr()) {
         const error = response.result.unwrapErr();
-        addNotification(`Error: ${JSON.stringify(error)}`, "error");
+        const errorMessage = getSorobanErrorMessage(error);
+        updateTxStatus("withdrawFromBlend", `Error: ${errorMessage}`, false);
+        addNotification(errorMessage, "error");
+        setTimeout(clearTxStatus, 5000);
       } else {
         const yieldAmount = response.result.unwrap();
-        addNotification(
-          `Withdrew from Blend! Yield: ${Number(yieldAmount) / 10000000} XLM`,
-          "success",
-        );
-        // Reload lottery data
-        const stateResult = await lotteryContract.get_lottery_state();
-        if (stateResult.result.isOk()) {
-          const state = stateResult.result.unwrap();
-          const statusTag =
-            typeof state.status === "object" && state.status.tag
-              ? state.status.tag
-              : state.status;
-          setLotteryState({
-            status: statusTag as LotteryStatus,
-            no_participants: state.no_participants,
-            amount_of_yield: BigInt(state.amount_of_yield.toString()),
-            token: state.token,
-          });
-        }
+        updateTxStatus("withdrawFromBlend", "Transaction confirmed");
+        updateTxStatus("withdrawFromBlend", "Updating balances...");
+        await loadLotteryState();
+        await loadContractBalance();
+        const successMsg = `Withdrew from Blend! Yield: ${Number(yieldAmount) / 10000000} XLM`;
+        updateTxStatus("withdrawFromBlend", successMsg, false);
+        addNotification(successMsg, "success");
+        setTimeout(clearTxStatus, 3000);
       }
     } catch (error) {
-      addNotification("Failed to withdraw from Blend", "error");
+      const errorMessage = getSorobanErrorMessage(error);
+      updateTxStatus("withdrawFromBlend", `Error: ${errorMessage}`, false);
+      addNotification(errorMessage, "error");
       console.error(error);
+      setTimeout(clearTxStatus, 5000);
     } finally {
       setIsSubmitting(false);
     }
@@ -785,10 +863,6 @@ export const Lottery = () => {
   };
 
   const ticketAmountXLM = Number(ticketAmount) / 10000000;
-  const isAdmin =
-    address &&
-    adminAddress &&
-    address.toLowerCase() === adminAddress.toLowerCase();
 
   if (!address) {
     return (
@@ -939,9 +1013,9 @@ export const Lottery = () => {
             </div>
           </div>
           <div className="amber-stat">
-            <div className="amber-stat-label">TOTAL YIELD</div>
+            <div className="amber-stat-label">TOTAL DEPOSITED</div>
             <div className="amber-stat-value">
-              {(Number(lotteryState.amount_of_yield) / 10000000).toFixed(2)}
+              ${(Number(contractBalance) / 10000000).toFixed(2)}
             </div>
           </div>
           <div className="amber-stat">
@@ -949,68 +1023,6 @@ export const Lottery = () => {
             <div className="amber-stat-value">${ticketAmountXLM}</div>
           </div>
         </div>
-
-        {/* Admin Controls */}
-        {isAdmin && (
-          <div className="amber-section">
-            <div className="amber-label">ADMIN CONTROLS - STATUS</div>
-            <div className="amber-grid">
-              <button
-                type="button"
-                className={`amber-button ${lotteryState.status === LotteryStatus.BuyIn ? "amber-button-active" : ""}`}
-                onClick={() => void changeStatus(LotteryStatus.BuyIn)}
-                disabled={isSubmitting}
-              >
-                Buy In
-              </button>
-              <button
-                type="button"
-                className={`amber-button ${lotteryState.status === LotteryStatus.YieldFarming ? "amber-button-active" : ""}`}
-                onClick={() => void changeStatus(LotteryStatus.YieldFarming)}
-                disabled={isSubmitting}
-              >
-                Farming
-              </button>
-              <button
-                type="button"
-                className={`amber-button ${lotteryState.status === LotteryStatus.Ended ? "amber-button-active" : ""}`}
-                onClick={() => void changeStatus(LotteryStatus.Ended)}
-                disabled={isSubmitting}
-              >
-                End
-              </button>
-            </div>
-
-            <div className="amber-label" style={{ marginTop: "20px" }}>
-              ADMIN CONTROLS - BLEND
-            </div>
-            <div className="amber-grid">
-              <button
-                type="button"
-                className="amber-button"
-                onClick={() => void blendIt()}
-                disabled={
-                  isSubmitting ||
-                  lotteryState.status !== LotteryStatus.YieldFarming
-                }
-                title="Send funds to Blend pool for yield farming"
-              >
-                Send to Blend
-              </button>
-              <button
-                type="button"
-                className="amber-button"
-                onClick={() => void withdrawFromBlend()}
-                disabled={
-                  isSubmitting || lotteryState.status !== LotteryStatus.Ended
-                }
-                title="Withdraw funds from Blend pool"
-              >
-                Withdraw from Blend
-              </button>
-            </div>
-          </div>
-        )}
 
         {/* Buy Ticket */}
         <div className="amber-section">
@@ -1035,6 +1047,11 @@ export const Lottery = () => {
           >
             {isSubmitting ? "Processing" : "Buy Ticket"}
           </button>
+          {txStatus.action === "buyTicket" && txStatus.message && (
+            <div className="amber-text" style={{ marginTop: "15px" }}>
+              <span className="amber-prompt">&gt;</span> {txStatus.message}
+            </div>
+          )}
         </div>
 
         {/* My Tickets */}
@@ -1104,11 +1121,16 @@ export const Lottery = () => {
                 </button>
               </div>
             ))}
+            {txStatus.action === "redeemTicket" && txStatus.message && (
+              <div className="amber-text" style={{ marginTop: "15px" }}>
+                <span className="amber-prompt">&gt;</span> {txStatus.message}
+              </div>
+            )}
           </div>
         )}
 
         {/* Raffle */}
-        {lotteryState.status === LotteryStatus.Ended && isAdmin && (
+        {lotteryState.status === LotteryStatus.Ended && (
           <div className="amber-section">
             <div className="amber-label">EXECUTE WINNER SELECTION</div>
             <div className="amber-text">
@@ -1126,6 +1148,11 @@ export const Lottery = () => {
             >
               {isSubmitting ? "Processing" : "Run Raffle"}
             </button>
+            {txStatus.action === "raffle" && txStatus.message && (
+              <div className="amber-text" style={{ marginTop: "15px" }}>
+                <span className="amber-prompt">&gt;</span> {txStatus.message}
+              </div>
+            )}
             {winningTicket && (
               <div className="amber-section">
                 <div className="amber-ticket-id">
@@ -1158,6 +1185,78 @@ export const Lottery = () => {
             <strong>5. PARTICIPANTS</strong> — All others receive full deposit
             back
           </div>
+        </div>
+
+        {/* Protocol Controls */}
+        <div className="amber-section">
+          <div className="amber-label">PROTOCOL CONTROLS - STATUS</div>
+          <div className="amber-grid">
+            <button
+              type="button"
+              className={`amber-button ${lotteryState.status === LotteryStatus.BuyIn ? "amber-button-active" : ""}`}
+              onClick={() => void changeStatus(LotteryStatus.BuyIn)}
+              disabled={isSubmitting}
+            >
+              Buy In
+            </button>
+            <button
+              type="button"
+              className={`amber-button ${lotteryState.status === LotteryStatus.YieldFarming ? "amber-button-active" : ""}`}
+              onClick={() => void changeStatus(LotteryStatus.YieldFarming)}
+              disabled={isSubmitting}
+            >
+              Farming
+            </button>
+            <button
+              type="button"
+              className={`amber-button ${lotteryState.status === LotteryStatus.Ended ? "amber-button-active" : ""}`}
+              onClick={() => void changeStatus(LotteryStatus.Ended)}
+              disabled={isSubmitting}
+            >
+              End
+            </button>
+          </div>
+          {txStatus.action === "changeStatus" && txStatus.message && (
+            <div className="amber-text" style={{ marginTop: "15px" }}>
+              <span className="amber-prompt">&gt;</span> {txStatus.message}
+            </div>
+          )}
+
+          <div className="amber-label" style={{ marginTop: "20px" }}>
+            PROTOCOL CONTROLS - BLEND
+          </div>
+          <div className="amber-grid">
+            <button
+              type="button"
+              className="amber-button"
+              onClick={() => void blendIt()}
+              disabled={
+                isSubmitting ||
+                lotteryState.status !== LotteryStatus.YieldFarming
+              }
+              title="Send funds to Blend pool for yield farming"
+            >
+              Send to Blend
+            </button>
+            <button
+              type="button"
+              className="amber-button"
+              onClick={() => void withdrawFromBlend()}
+              disabled={
+                isSubmitting || lotteryState.status !== LotteryStatus.Ended
+              }
+              title="Withdraw funds from Blend pool"
+            >
+              Withdraw from Blend
+            </button>
+          </div>
+          {(txStatus.action === "blendIt" ||
+            txStatus.action === "withdrawFromBlend") &&
+            txStatus.message && (
+              <div className="amber-text" style={{ marginTop: "15px" }}>
+                <span className="amber-prompt">&gt;</span> {txStatus.message}
+              </div>
+            )}
         </div>
       </div>
     </div>

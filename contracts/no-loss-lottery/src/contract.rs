@@ -197,6 +197,12 @@ impl NoLossLottery {
         storage::read_token_amount(&e)
     }
 
+    pub fn get_contract_balance(e: Env) -> Result<i128, LotteryError> {
+        let token_address = storage::read_currency(&e)?;
+        let token_client = token::Client::new(&e, &token_address);
+        Ok(token_client.balance(&e.current_contract_address()))
+    }
+
     pub fn get_user_tickets(
         e: Env,
         user: Address,
