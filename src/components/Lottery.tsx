@@ -11,6 +11,7 @@ import NetworkPill from "./NetworkPill";
 import FundAccountButton from "./FundAccountButton";
 import { useNavigate } from "react-router-dom";
 import packageJson from "../../package.json";
+import { getSorobanErrorMessage } from "../util/errorHandling";
 
 // 80s Amber Terminal Theme CSS
 const amberStyles = `
@@ -578,7 +579,8 @@ export const Lottery = () => {
         await loadUserTickets();
       } catch (error) {
         console.error("Error loading lottery data:", error);
-        addNotification("Failed to load lottery data", "error");
+        const errorMessage = getSorobanErrorMessage(error);
+        addNotification(errorMessage, "error");
       } finally {
         setIsLoading(false);
       }
@@ -603,7 +605,8 @@ export const Lottery = () => {
 
       if (response.result.isErr()) {
         const error = response.result.unwrapErr();
-        addNotification(`Error: ${JSON.stringify(error)}`, "error");
+        const errorMessage = getSorobanErrorMessage(error);
+        addNotification(errorMessage, "error");
       } else {
         addNotification("Ticket purchased successfully!", "success");
         await loadUserTickets();
@@ -611,7 +614,8 @@ export const Lottery = () => {
         await loadLotteryState();
       }
     } catch (error) {
-      addNotification("Failed to buy ticket", "error");
+      const errorMessage = getSorobanErrorMessage(error);
+      addNotification(errorMessage, "error");
       console.error("Buy ticket error:", error);
     } finally {
       setIsSubmitting(false);
@@ -626,7 +630,8 @@ export const Lottery = () => {
 
       if (response.result.isErr()) {
         const error = response.result.unwrapErr();
-        addNotification(`Error: ${JSON.stringify(error)}`, "error");
+        const errorMessage = getSorobanErrorMessage(error);
+        addNotification(errorMessage, "error");
       } else {
         addNotification(
           ticket.won
@@ -639,7 +644,8 @@ export const Lottery = () => {
         await loadLotteryState();
       }
     } catch (error) {
-      addNotification("Failed to redeem ticket", "error");
+      const errorMessage = getSorobanErrorMessage(error);
+      addNotification(errorMessage, "error");
       console.error(error);
     } finally {
       setIsSubmitting(false);
@@ -654,7 +660,8 @@ export const Lottery = () => {
 
       if (response.result.isErr()) {
         const error = response.result.unwrapErr();
-        addNotification(`Error: ${JSON.stringify(error)}`, "error");
+        const errorMessage = getSorobanErrorMessage(error);
+        addNotification(errorMessage, "error");
       } else {
         const winner = response.result.unwrap();
         const winnerTicket: Ticket = {
@@ -671,7 +678,8 @@ export const Lottery = () => {
         await loadLotteryState();
       }
     } catch (error) {
-      addNotification("Failed to run raffle", "error");
+      const errorMessage = getSorobanErrorMessage(error);
+      addNotification(errorMessage, "error");
       console.error(error);
     } finally {
       setIsSubmitting(false);
@@ -700,13 +708,15 @@ export const Lottery = () => {
 
       if (response.result.isErr()) {
         const error = response.result.unwrapErr();
-        addNotification(`Error: ${JSON.stringify(error)}`, "error");
+        const errorMessage = getSorobanErrorMessage(error);
+        addNotification(errorMessage, "error");
       } else {
         addNotification(`Status changed to ${newStatus}`, "success");
         await loadLotteryState();
       }
     } catch (error) {
-      addNotification("Failed to change status", "error");
+      const errorMessage = getSorobanErrorMessage(error);
+      addNotification(errorMessage, "error");
       console.error(error);
     } finally {
       setIsSubmitting(false);
@@ -731,14 +741,16 @@ export const Lottery = () => {
 
       if (response.result.isErr()) {
         const error = response.result.unwrapErr();
-        addNotification(`Error: ${JSON.stringify(error)}`, "error");
+        const errorMessage = getSorobanErrorMessage(error);
+        addNotification(errorMessage, "error");
       } else {
         addNotification("Funds sent to Blend successfully!", "success");
         await loadLotteryState();
         await loadContractBalance();
       }
     } catch (error) {
-      addNotification("Failed to send funds to Blend", "error");
+      const errorMessage = getSorobanErrorMessage(error);
+      addNotification(errorMessage, "error");
       console.error(error);
     } finally {
       setIsSubmitting(false);
@@ -763,7 +775,8 @@ export const Lottery = () => {
 
       if (response.result.isErr()) {
         const error = response.result.unwrapErr();
-        addNotification(`Error: ${JSON.stringify(error)}`, "error");
+        const errorMessage = getSorobanErrorMessage(error);
+        addNotification(errorMessage, "error");
       } else {
         const yieldAmount = response.result.unwrap();
         addNotification(
@@ -774,7 +787,8 @@ export const Lottery = () => {
         await loadContractBalance();
       }
     } catch (error) {
-      addNotification("Failed to withdraw from Blend", "error");
+      const errorMessage = getSorobanErrorMessage(error);
+      addNotification(errorMessage, "error");
       console.error(error);
     } finally {
       setIsSubmitting(false);
