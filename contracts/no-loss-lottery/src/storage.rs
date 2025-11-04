@@ -1,5 +1,10 @@
 use crate::error::LotteryError;
-use soroban_sdk::{contracttype, Address, Env, Vec};
+use soroban_sdk::{contracttype, Address, Bytes, Env, Vec};
+
+const DAY_IN_LEDGERS: u32 = 17300;
+pub const MIN_YIELD_TIME_IN_LEDGERS: u32 = DAY_IN_LEDGERS * 6;
+pub const MIN_BUYIN_TIME_IN_LEDGERS: u32 = DAY_IN_LEDGERS;
+pub const MIN_ENDED_TIME_IN_LEDGERS: u32 = DAY_IN_LEDGERS;
 
 #[derive(PartialEq, Eq, Debug, Clone)]
 #[contracttype]
@@ -43,6 +48,10 @@ enum Key {
     Blender,
     Ids,
     WinnerSelected,
+    Seed,
+    FarmingStartedLedger,
+    BuyInStartedLedger,
+    EndedStartedLedger,
 }
 
 pub fn write_admin(e: &Env, admin: &Address) {
@@ -63,6 +72,23 @@ pub fn is_admin(e: &Env, address: &Address) -> bool {
 
 pub fn write_lottery_status(e: &Env, status: &LotteryStatus) {
     e.storage().instance().set(&Key::LotteryStatus, status);
+
+    let current_ledger = e.ledger().sequence();
+
+    match status {
+        LotteryStatus::BuyIn => e
+            .storage()
+            .instance()
+            .set(&Key::BuyInStartedLedger, &current_ledger),
+        LotteryStatus::YieldFarming => e
+            .storage()
+            .instance()
+            .set(&Key::FarmingStartedLedger, &current_ledger),
+        LotteryStatus::Ended => e
+            .storage()
+            .instance()
+            .set(&Key::EndedStartedLedger, &current_ledger),
+    }
 }
 
 pub fn read_lottery_status(e: &Env) -> Result<LotteryStatus, LotteryError> {
@@ -235,4 +261,42 @@ pub fn read_winner_selected(e: &Env) -> Result<bool, LotteryError> {
         .instance()
         .get(&Key::WinnerSelected)
         .ok_or(LotteryError::WinnerSelectedNotFound)
+}
+
+pub fn write_seed(e: &Env, seed: &Bytes) {
+    e.storage().instance().set(&Key::Seed, seed);
+}
+
+pub fn read_seed(e: &Env) -> Result<Bytes, LotteryError> {
+    e.storage()
+        .instance()
+        .get(&Key::Seed)
+        .ok_or(LotteryError::SeedNotFound)
+}
+
+pub fn write_farming_started_ledger(e: &Env, ledger: u32) {
+    e.storage()
+        .instance()
+        .set(&Key::FarmingStartedLedger, &ledger);
+}
+
+pub fn read_farming_started_ledger(e: &Env) -> Result<u32, LotteryError> {
+    e.storage()
+        .instance()
+        .get(&Key::FarmingStartedLedger)
+        .ok_or(LotteryError::FarmingStartedLedgerNotFound)
+}
+
+pub fn read_buyin_started_ledger(e: &Env) -> Result<u32, LotteryError> {
+    e.storage()
+        .instance()
+        .get(&Key::BuyInStartedLedger)
+        .ok_or(LotteryError::BuyInStartedLedgerNotFound)
+}
+
+pub fn read_ended_started_ledger(e: &Env) -> Result<u32, LotteryError> {
+    e.storage()
+        .instance()
+        .get(&Key::EndedStartedLedger)
+        .ok_or(LotteryError::EndedStartedLedgerNotFound)
 }
