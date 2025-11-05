@@ -381,6 +381,7 @@ impl NoLossLottery {
         let reserve_token_id = reserve_index * 2 + 1;
         let reserve_ids = vec![&e, reserve_token_id];
         blend_client.claim(&e.current_contract_address(), &reserve_ids, &admin);
+
         Ok(())
     }
 }
@@ -773,6 +774,72 @@ mod tests {
             });
             lottery_client.set_status(&LotteryStatus::YieldFarming);
             lottery_client.set_status(&LotteryStatus::BuyIn);
+        }
+    }
+
+    mod raffle {
+        use super::*;
+
+        #[test]
+        #[should_panic(expected = "Error(Contract, #1)")]
+        fn status_buyin() {
+            let e = Env::default();
+            e.mock_all_auths();
+            let TestEnv { lottery_client, .. } = setup_test_env(&e);
+
+            lottery_client.raffle();
+        }
+
+        #[test]
+        #[should_panic(expected = "Error(Contract, #1)")]
+        fn status_yieldfarming() {
+            let e = Env::default();
+            e.mock_all_auths();
+            e.ledger().with_mut(|li| {
+                li.sequence_number = 1;
+                li.min_persistent_entry_ttl = 10_000_000;
+                li.min_temp_entry_ttl = 1_000_000;
+                li.max_entry_ttl = 1_000_001;
+            });
+            let TestEnv { lottery_client, .. } = setup_test_env(&e);
+            e.ledger().with_mut(|li| {
+                li.sequence_number = 100_000;
+            });
+            lottery_client.set_status(&LotteryStatus::YieldFarming);
+            lottery_client.raffle();
+        }
+
+        #[test]
+        fn status_ended() {
+            let e = Env::default();
+            e.mock_all_auths();
+            e.ledger().with_mut(|li| {
+                li.sequence_number = 1;
+                li.min_persistent_entry_ttl = 10_000_000;
+                li.min_temp_entry_ttl = 1_000_000;
+                li.max_entry_ttl = 1_000_001;
+            });
+            let TestEnv {
+                lottery_client,
+                user,
+                ..
+            } = setup_test_env(&e);
+
+            let mut user_ticket = lottery_client.buy_ticket(&user);
+
+            e.ledger().with_mut(|li| {
+                li.sequence_number = 100_000;
+            });
+            lottery_client.set_status(&LotteryStatus::YieldFarming);
+            e.ledger().with_mut(|li| {
+                li.sequence_number = 300_000;
+            });
+            lottery_client.set_status(&LotteryStatus::Ended);
+            let winner = lottery_client.raffle();
+
+            user_ticket.won = true;
+
+            assert_eq!(user_ticket, winner)
         }
     }
 

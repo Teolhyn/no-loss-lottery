@@ -1,6 +1,6 @@
 import React from "react";
 import { useWallet } from "../hooks/useWallet";
-import { stellarNetwork } from "../contracts/util";
+import { network as appNetworkConfig } from "../contracts/util";
 
 // Format network name with first letter capitalized
 const formatNetworkName = (name: string) =>
@@ -9,7 +9,7 @@ const formatNetworkName = (name: string) =>
     ? "Local"
     : name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
 
-const appNetwork = formatNetworkName(stellarNetwork);
+const appNetwork = appNetworkConfig.label;
 
 const NetworkPill: React.FC = () => {
   const { network, address } = useWallet();

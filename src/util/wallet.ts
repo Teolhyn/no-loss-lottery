@@ -3,7 +3,7 @@ import {
   ISupportedWallet,
   StellarWalletsKit,
   WalletNetwork,
-  sep43Modules,
+  allowAllModules,
   IModalTheme,
   IButtonTheme,
 } from "@creit.tech/stellar-wallets-kit";
@@ -34,7 +34,7 @@ const amberButtonTheme: IButtonTheme = {
 
 const kit: StellarWalletsKit = new StellarWalletsKit({
   network: networkPassphrase as WalletNetwork,
-  modules: sep43Modules(),
+  modules: allowAllModules(),
   modalTheme: amberModalTheme,
   buttonTheme: amberButtonTheme,
 });

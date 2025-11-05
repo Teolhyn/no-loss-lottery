@@ -13,6 +13,7 @@ const envSchema = z.object({
   PUBLIC_STELLAR_NETWORK_PASSPHRASE: z.nativeEnum(WalletNetwork),
   PUBLIC_STELLAR_RPC_URL: z.string(),
   PUBLIC_STELLAR_HORIZON_URL: z.string(),
+  PUBLIC_NO_LOSS_LOTTERY_CONTRACT_ID: z.string(),
 });
 
 const parsed = envSchema.safeParse(import.meta.env);
@@ -24,6 +25,7 @@ const env: z.infer<typeof envSchema> = parsed.success
       PUBLIC_STELLAR_NETWORK_PASSPHRASE: WalletNetwork.STANDALONE,
       PUBLIC_STELLAR_RPC_URL: "http://localhost:8000/rpc",
       PUBLIC_STELLAR_HORIZON_URL: "http://localhost:8000",
+      PUBLIC_NO_LOSS_LOTTERY_CONTRACT_ID: "",
     };
 
 export const stellarNetwork =
@@ -69,10 +71,27 @@ const networkToId = (network: string): NetworkType => {
   }
 };
 
+const networkToLabel = (network: string): string => {
+  switch (network) {
+    case "PUBLIC":
+      return "Mainnet";
+    case "TESTNET":
+      return "Testnet";
+    case "FUTURENET":
+      return "Futurenet";
+    case "LOCAL":
+      return "Local";
+    default:
+      return network.toLowerCase();
+  }
+};
+
 export const network: Network = {
   id: networkToId(stellarNetwork),
-  label: stellarNetwork.toLowerCase(),
+  label: networkToLabel(stellarNetwork),
   passphrase: networkPassphrase,
   rpcUrl: rpcUrl,
   horizonUrl: horizonUrl,
 };
+
+export const noLossLotteryContractId = env.PUBLIC_NO_LOSS_LOTTERY_CONTRACT_ID;
