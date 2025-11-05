@@ -2,7 +2,9 @@
 
 # No Loss Lottery
 
-This is a No Loss Lottery dApp built on [Stellar blockchain](https://stellar.org/) using [Blend](https://blend.capital/) for yield generation. This project was built for the [Stellar Scaffold Hackathon](https://dorahacks.io/hackathon/scaffoldstellar/detail), in which the theme was first, to use the [Stellar Scaffold](https://scaffoldstellar.org) as the starting point of the dApp, and second to use the [Stellar Wallets Kit](https://stellarwalletskit.dev/) for wallet integration.
+
+This is a [No Loss Lottery dApp](https://teolhyn.github.io/no-loss-lottery) built on [Stellar blockchain](https://stellar.org/) using [Blend](https://blend.capital/) for yield generation. This project was built for the [Stellar Scaffold Hackathon](https://dorahacks.io/hackathon/scaffoldstellar/detail), in which the theme was first, to use the [Stellar Scaffold](https://scaffoldstellar.org) as the starting point of the dApp, and second to use the [Stellar Wallets Kit](https://stellarwalletskit.dev/) for wallet integration.
+
 
 ## Overview of No Loss Lottery
 
@@ -52,4 +54,4 @@ withdraw_from_blend(e: Env) -> Result<i128, LotteryError>
 admin_claim_emissions(e: &Env) -> Result<(), LotteryError>
 ```
 
-`admin_claim_emissions` claims emissions from Blend pool, transfers them to contract and from there to admin address. NOTE: Implementation is still under development and untested.
+`admin_claim_emissions` claims emissions from Blend pool and transfers them to admin address. As it directly transfers from Blend to admin and the emissions are stored separately from yield, this function is callable anytime.
