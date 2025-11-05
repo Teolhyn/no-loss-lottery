@@ -37,7 +37,7 @@ lerna-debug.log*
 .DS_Store
 
 # generated contract clients
-packages/*
+# packages/* commented out to allow committing contract clients for production
 # if you have other workspace packages, add them here
 !packages/.gitkeep
 
