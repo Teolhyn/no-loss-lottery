@@ -38,8 +38,16 @@ jobs:
 
       - run: npm ci
 
+      - name: Install Stellar CLI
+        run: |
+          cargo install --locked stellar-cli --features opt
+          stellar version
+
       # Install contract packages (uses pre-generated clients from repo)
       - run: npm run install:contracts
+
+      # Generate contract client imports for src/contracts/
+      - run: STELLAR_SCAFFOLD_ENV=production stellar scaffold build --build-clients
 
       - run: npm run lint
       - run: npx prettier . --check
