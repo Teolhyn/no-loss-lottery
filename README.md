@@ -2,9 +2,7 @@
 
 # No Loss Lottery
 
-
 This is a [No Loss Lottery dApp](https://teolhyn.github.io/no-loss-lottery) built on [Stellar blockchain](https://stellar.org/) using [Blend](https://blend.capital/) for yield generation. This project was built for the [Stellar Scaffold Hackathon](https://dorahacks.io/hackathon/scaffoldstellar/detail), in which the theme was first, to use the [Stellar Scaffold](https://scaffoldstellar.org) as the starting point of the dApp, and second to use the [Stellar Wallets Kit](https://stellarwalletskit.dev/) for wallet integration.
-
 
 ## Overview of No Loss Lottery
 
