@@ -1,8 +1,3 @@
- 
- 
- 
- 
- 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useWallet } from "../hooks/useWallet";
 import { useWalletBalance } from "../hooks/useWalletBalance";
