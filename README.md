@@ -52,4 +52,4 @@ withdraw_from_blend(e: Env) -> Result<i128, LotteryError>
 admin_claim_emissions(e: &Env) -> Result<(), LotteryError>
 ```
 
-`admin_claim_emissions` claims emissions from Blend pool, transfers them to contract and from there to admin address. NOTE: Implementation is still under development and untested.
+`admin_claim_emissions` claims emissions from Blend pool and transfers them to admin address. As it directly transfers from Blend to admin and the emissions are stored separately from yield, this function is callable anytime.
