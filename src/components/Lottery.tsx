@@ -4,11 +4,14 @@ import { useWalletBalance } from "../hooks/useWalletBalance";
 import { useNotification } from "../hooks/useNotification";
 import lotteryContract from "../contracts/no_loss_lottery";
 import * as NoLossLottery from "no_loss_lottery";
-import { rpcUrl, stellarNetwork } from "../contracts/util";
+import {
+  rpcUrl,
+  stellarNetwork,
+  noLossLotteryContractId,
+} from "../contracts/util";
 import { WalletButton } from "./WalletButton";
 import NetworkPill from "./NetworkPill";
 import FundAccountButton from "./FundAccountButton";
-import { useNavigate } from "react-router-dom";
 import packageJson from "../../package.json";
 import { getSorobanErrorMessage } from "../util/errorHandling";
 import { useStatusCountdown } from "../hooks/useStatusCountdown";
@@ -110,27 +113,25 @@ const amberStyles = `
     font-size: 1.5rem;
   }
 
-  .amber-debug-button {
+  .amber-link {
     background: transparent;
     color: #FFAA00;
     border: 2px solid #FFAA00;
     font-family: 'Courier New', monospace;
-    fontSize: 0.9rem;
+    font-size: 0.9rem;
     font-weight: bold;
-    letter-spacing: 2px;
+    letter-spacing: 1px;
     text-transform: uppercase;
-    padding: 8px 16px;
+    padding: 6px 12px;
     cursor: pointer;
     transition: all 0.2s;
     text-shadow: 0 0 5px #FFAA00;
-    box-shadow: 0 0 15px rgba(255, 170, 0, 0.2);
     text-decoration: none;
     display: inline-block;
   }
 
-  .amber-debug-button:hover {
+  .amber-link:hover {
     background: rgba(255, 170, 0, 0.1);
-    box-shadow: 0 0 30px rgba(255, 170, 0, 0.4);
     text-shadow: 0 0 10px #FFAA00, 0 0 20px #FFAA00;
   }
 
@@ -472,7 +473,6 @@ export const Lottery = () => {
   const { address, signTransaction } = useWallet();
   const { isFunded } = useWalletBalance();
   const { addNotification } = useNotification();
-  const navigate = useNavigate();
 
   // Countdown for status transitions
   const countdown = useStatusCountdown(
@@ -932,13 +932,22 @@ export const Lottery = () => {
           <div className="amber-wallet-bar">
             <WalletButton />
             <NetworkPill />
-            <button
-              type="button"
-              className="amber-debug-button"
-              onClick={() => void navigate("/debug")}
+            <a
+              href={`https://stellar.expert/explorer/public/contract/${noLossLotteryContractId}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="amber-link"
             >
-              &gt; Debug
-            </button>
+              &gt; Contract
+            </a>
+            <a
+              href="https://github.com/Teolhyn/no-loss-lottery"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="amber-link"
+            >
+              &gt; Source
+            </a>
           </div>
           <div className="amber-section">
             <div className="amber-label">SYSTEM STATUS</div>
@@ -969,13 +978,22 @@ export const Lottery = () => {
             <WalletButton />
             {stellarNetwork !== "PUBLIC" && <FundAccountButton />}
             <NetworkPill />
-            <button
-              type="button"
-              className="amber-debug-button"
-              onClick={() => void navigate("/debug")}
+            <a
+              href={`https://stellar.expert/explorer/public/contract/${noLossLotteryContractId}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="amber-link"
             >
-              &gt; Debug
-            </button>
+              &gt; Contract
+            </a>
+            <a
+              href="https://github.com/Teolhyn/no-loss-lottery"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="amber-link"
+            >
+              &gt; Source
+            </a>
           </div>
           <div className="amber-section">
             <div className="amber-label">INSUFFICIENT FUNDS</div>
@@ -1006,13 +1024,22 @@ export const Lottery = () => {
             <WalletButton />
             {stellarNetwork !== "PUBLIC" && <FundAccountButton />}
             <NetworkPill />
-            <button
-              type="button"
-              className="amber-debug-button"
-              onClick={() => void navigate("/debug")}
+            <a
+              href={`https://stellar.expert/explorer/public/contract/${noLossLotteryContractId}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="amber-link"
             >
-              &gt; Debug
-            </button>
+              &gt; Contract
+            </a>
+            <a
+              href="https://github.com/Teolhyn/no-loss-lottery"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="amber-link"
+            >
+              &gt; Source
+            </a>
           </div>
           <div className="amber-section">
             <div className="amber-label">INITIALIZING</div>
@@ -1043,13 +1070,22 @@ export const Lottery = () => {
           <WalletButton />
           {stellarNetwork !== "PUBLIC" && <FundAccountButton />}
           <NetworkPill />
-          <button
-            type="button"
-            className="amber-debug-button"
-            onClick={() => void navigate("/debug")}
+          <a
+            href={`https://stellar.expert/explorer/public/contract/${noLossLotteryContractId}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="amber-link"
           >
-            &gt; Debug
-          </button>
+            &gt; Contract
+          </a>
+          <a
+            href="https://github.com/Teolhyn/no-loss-lottery"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="amber-link"
+          >
+            &gt; Source
+          </a>
         </div>
 
         {/* Status Section */}

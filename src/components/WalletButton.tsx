@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Modal } from "@stellar/design-system";
 import { useWallet } from "../hooks/useWallet";
-import { useWalletBalance } from "../hooks/useWalletBalance";
 import { connectWallet, disconnectWallet } from "../util/wallet";
 
 const amberButtonStyle: React.CSSProperties = {
@@ -34,7 +33,6 @@ export const WalletButton = () => {
   const [isHoveringAddress, setIsHoveringAddress] = useState(false);
   const [isHoveringCancel, setIsHoveringCancel] = useState(false);
   const { address, isPending } = useWallet();
-  const { usdc, ...balance } = useWalletBalance();
   const buttonLabel = isPending ? "Loading..." : "[Connect Wallet]";
 
   if (!address) {
@@ -54,26 +52,7 @@ export const WalletButton = () => {
   const shortAddress = `${address.slice(0, 4)}...${address.slice(-4)}`;
 
   return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "row",
-        alignItems: "center",
-        gap: "15px",
-        opacity: balance.isLoading ? 0.6 : 1,
-      }}
-    >
-      <div
-        style={{
-          color: "#FFAA00",
-          fontFamily: "'Courier New', monospace",
-          fontSize: "0.9rem",
-          letterSpacing: "1px",
-        }}
-      >
-        {usdc} USDC
-      </div>
-
+    <>
       <Modal
         visible={showDisconnectModal}
         onClose={() => setShowDisconnectModal(false)}
@@ -165,6 +144,6 @@ export const WalletButton = () => {
       >
         {shortAddress}
       </button>
-    </div>
+    </>
   );
 };
