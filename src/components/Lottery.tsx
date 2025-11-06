@@ -637,7 +637,11 @@ export const Lottery = () => {
     setIsSubmitting(true);
     try {
       updateTxStatus("buyTicket", "Preparing transaction...");
-      const tx = await lottery.buy_ticket({ user: address });
+      // Use a higher fee for mainnet Soroban transactions (0.5 XLM)
+      const tx = await lottery.buy_ticket(
+        { user: address },
+        { fee: 5000000 }, // 0.5 XLM in stroops
+      );
 
       updateTxStatus("buyTicket", "Simulating transaction...");
 
@@ -675,7 +679,10 @@ export const Lottery = () => {
     setIsSubmitting(true);
     try {
       updateTxStatus("redeemTicket", "Preparing redemption...");
-      const tx = await lottery.redeem_ticket({ ticket });
+      const tx = await lottery.redeem_ticket(
+        { ticket },
+        { fee: 5000000 }, // 0.5 XLM in stroops
+      );
 
       updateTxStatus("redeemTicket", "Simulating transaction...");
 
@@ -716,7 +723,7 @@ export const Lottery = () => {
     setIsSubmitting(true);
     try {
       updateTxStatus("raffle", "Preparing raffle...");
-      const tx = await lottery.raffle();
+      const tx = await lottery.raffle({ fee: 5000000 }); // 0.5 XLM in stroops
 
       updateTxStatus("raffle", "Simulating transaction...");
 
@@ -770,9 +777,12 @@ export const Lottery = () => {
       updateTxStatus("changeStatus", `Changing status to ${newStatus}...`);
       const statusEnum = { tag: newStatus, values: undefined };
 
-      const tx = await lottery.set_status({
-        new_status: statusEnum,
-      });
+      const tx = await lottery.set_status(
+        {
+          new_status: statusEnum,
+        },
+        { fee: 5000000 }, // 0.5 XLM in stroops
+      );
 
       updateTxStatus("changeStatus", "Simulating transaction...");
 
@@ -814,7 +824,7 @@ export const Lottery = () => {
     setIsSubmitting(true);
     try {
       updateTxStatus("blendIt", "Preparing to send funds to Blend...");
-      const tx = await lottery.blend_it();
+      const tx = await lottery.blend_it({ fee: 5000000 }); // 0.5 XLM in stroops
 
       updateTxStatus("blendIt", "Simulating transaction...");
 
@@ -860,7 +870,7 @@ export const Lottery = () => {
         "withdrawFromBlend",
         "Preparing to withdraw from Blend...",
       );
-      const tx = await lottery.withdraw_from_blend();
+      const tx = await lottery.withdraw_from_blend({ fee: 5000000 }); // 0.5 XLM in stroops
 
       updateTxStatus("withdrawFromBlend", "Simulating transaction...");
 
