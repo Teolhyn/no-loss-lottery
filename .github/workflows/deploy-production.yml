@@ -36,23 +36,9 @@ jobs:
         with:
           node-version: "20"
 
-      - run: rustup target add wasm32v1-none
-      - run: sudo apt-get update && sudo apt-get install -y libudev-dev libdbus-1-dev pkg-config
-      - name: Install cargo-binstall
-        uses: cargo-bins/cargo-binstall@v1.15.6
-      - name: Install stellar-scaffold
-        run: cargo binstall -y stellar-scaffold-cli
       - run: npm ci
 
-      # Generate contract client imports for src/contracts/ and build package
-      - run: STELLAR_SCAFFOLD_ENV=production stellar-scaffold build --build-clients || true
-
-      # Copy generated package from target to workspace
-      - run: |
-          mkdir -p packages
-          cp -r target/packages/* packages/ || true
-
-      # Install contract packages
+      # Install contract packages (already committed to repo)
       - run: npm run install:contracts
 
       - run: npm run lint

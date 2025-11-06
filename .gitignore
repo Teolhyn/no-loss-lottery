@@ -42,5 +42,5 @@ lerna-debug.log*
 !packages/.gitkeep
 
 # generated contract client imports
-src/contracts/*
-!src/contracts/util.ts
+# src/contracts/* commented out to allow committing production contract clients
+# !src/contracts/util.ts
