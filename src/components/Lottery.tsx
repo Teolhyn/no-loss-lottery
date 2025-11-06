@@ -638,15 +638,19 @@ export const Lottery = () => {
     setIsSubmitting(true);
     try {
       updateTxStatus("buyTicket", "Preparing transaction...");
-      const tx = await lottery.buy_ticket({ user: address });
-
-      updateTxStatus("buyTicket", "Simulating transaction...");
 
       // Get recommended fee based on network conditions
       const recommendedFee = await getRecommendedFee(90); // Target 90th percentile for faster inclusion
 
+      const tx = await lottery.buy_ticket(
+        { user: address },
+        { fee: recommendedFee },
+      );
+
+      updateTxStatus("buyTicket", "Simulating transaction...");
+
       updateTxStatus("buyTicket", "Sending transaction...");
-      const response = await tx.signAndSend({ fee: recommendedFee.toString() });
+      const response = await tx.signAndSend();
 
       if (response.result.isErr()) {
         const error = response.result.unwrapErr();
@@ -679,15 +683,19 @@ export const Lottery = () => {
     setIsSubmitting(true);
     try {
       updateTxStatus("redeemTicket", "Preparing redemption...");
-      const tx = await lottery.redeem_ticket({ ticket });
-
-      updateTxStatus("redeemTicket", "Simulating transaction...");
 
       // Get recommended fee based on network conditions
       const recommendedFee = await getRecommendedFee(90);
 
+      const tx = await lottery.redeem_ticket(
+        { ticket },
+        { fee: recommendedFee },
+      );
+
+      updateTxStatus("redeemTicket", "Simulating transaction...");
+
       updateTxStatus("redeemTicket", "Sending transaction...");
-      const response = await tx.signAndSend({ fee: recommendedFee.toString() });
+      const response = await tx.signAndSend();
 
       if (response.result.isErr()) {
         const error = response.result.unwrapErr();
@@ -723,15 +731,16 @@ export const Lottery = () => {
     setIsSubmitting(true);
     try {
       updateTxStatus("raffle", "Preparing raffle...");
-      const tx = await lottery.raffle({});
-
-      updateTxStatus("raffle", "Simulating transaction...");
 
       // Get recommended fee based on network conditions
       const recommendedFee = await getRecommendedFee(90);
 
+      const tx = await lottery.raffle({ fee: recommendedFee });
+
+      updateTxStatus("raffle", "Simulating transaction...");
+
       updateTxStatus("raffle", "Selecting winner...");
-      const response = await tx.signAndSend({ fee: recommendedFee.toString() });
+      const response = await tx.signAndSend();
 
       if (response.result.isErr()) {
         const error = response.result.unwrapErr();
@@ -780,17 +789,20 @@ export const Lottery = () => {
       updateTxStatus("changeStatus", `Changing status to ${newStatus}...`);
       const statusEnum = { tag: newStatus, values: undefined };
 
-      const tx = await lottery.set_status({
-        new_status: statusEnum,
-      });
-
-      updateTxStatus("changeStatus", "Simulating transaction...");
-
       // Get recommended fee based on network conditions
       const recommendedFee = await getRecommendedFee(90);
 
+      const tx = await lottery.set_status(
+        {
+          new_status: statusEnum,
+        },
+        { fee: recommendedFee },
+      );
+
+      updateTxStatus("changeStatus", "Simulating transaction...");
+
       updateTxStatus("changeStatus", "Sending transaction...");
-      const response = await tx.signAndSend({ fee: recommendedFee.toString() });
+      const response = await tx.signAndSend();
 
       if (response.result.isErr()) {
         const error = response.result.unwrapErr();
@@ -827,15 +839,16 @@ export const Lottery = () => {
     setIsSubmitting(true);
     try {
       updateTxStatus("blendIt", "Preparing to send funds to Blend...");
-      const tx = await lottery.blend_it();
-
-      updateTxStatus("blendIt", "Simulating transaction...");
 
       // Get recommended fee based on network conditions
       const recommendedFee = await getRecommendedFee(90);
 
+      const tx = await lottery.blend_it({ fee: recommendedFee });
+
+      updateTxStatus("blendIt", "Simulating transaction...");
+
       updateTxStatus("blendIt", "Sending transaction...");
-      const response = await tx.signAndSend({ fee: recommendedFee.toString() });
+      const response = await tx.signAndSend();
 
       if (response.result.isErr()) {
         const error = response.result.unwrapErr();
@@ -876,15 +889,16 @@ export const Lottery = () => {
         "withdrawFromBlend",
         "Preparing to withdraw from Blend...",
       );
-      const tx = await lottery.withdraw_from_blend();
-
-      updateTxStatus("withdrawFromBlend", "Simulating transaction...");
 
       // Get recommended fee based on network conditions
       const recommendedFee = await getRecommendedFee(90);
 
+      const tx = await lottery.withdraw_from_blend({ fee: recommendedFee });
+
+      updateTxStatus("withdrawFromBlend", "Simulating transaction...");
+
       updateTxStatus("withdrawFromBlend", "Sending transaction...");
-      const response = await tx.signAndSend({ fee: recommendedFee.toString() });
+      const response = await tx.signAndSend();
 
       if (response.result.isErr()) {
         const error = response.result.unwrapErr();
