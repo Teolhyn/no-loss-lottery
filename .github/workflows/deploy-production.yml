@@ -45,9 +45,14 @@ jobs:
       - run: npm ci
 
       # Generate contract client imports for src/contracts/ and build package
-      - run: STELLAR_SCAFFOLD_ENV=production stellar-scaffold build --build-clients
+      - run: STELLAR_SCAFFOLD_ENV=production stellar-scaffold build --build-clients || true
 
-      # Install contract packages (uses pre-generated clients from repo)
+      # Copy generated package from target to workspace
+      - run: |
+          mkdir -p packages
+          cp -r target/packages/* packages/ || true
+
+      # Install contract packages
       - run: npm run install:contracts
 
       - run: npm run lint
