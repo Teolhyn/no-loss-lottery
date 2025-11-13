@@ -953,6 +953,9 @@ export const Lottery = () => {
             <div className="amber-label">SYSTEM STATUS</div>
             <div className="amber-text">
               <span className="amber-prompt">&gt;</span>
+              CONTRACT HAS NOT BEEN AUDITED! USE AT OWN RISK.
+              <br />
+              <span className="amber-prompt">&gt;</span>
               WALLET CONNECTION REQUIRED
               <br />
               <br />
@@ -1096,8 +1099,14 @@ export const Lottery = () => {
           </div>
           {!countdown.canTransition && countdown.remainingLedgers > 0 && (
             <div className="amber-text" style={{ marginTop: "20px" }}>
-              <span className="amber-prompt">&gt;</span> Ledgers until status
-              can be changed: {countdown.remainingLedgers} (~
+              <span className="amber-prompt">&gt;</span>
+              CONTRACT HAS NOT BEEN AUDITED! USE AT OWN RISK.
+              <br />
+              <span className="amber-prompt">&gt;</span>
+              Ledgers until status can be changed: {
+                countdown.remainingLedgers
+              }{" "}
+              (~
               {countdown.timeString})
             </div>
           )}
